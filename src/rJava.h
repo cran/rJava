@@ -1,7 +1,12 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000203 /* rJava v0.2-3 */
+#define RJAVA_VER 0x000302 /* rJava v0.3-2 */
+
+/* important changes between versions:
+   0.3  - uses EXTPTR in jobj slot, adds finalizers
+   0.2  - uses S4 classes
+   0.1  - first public release */
 
 #include <jni.h>
 
@@ -26,6 +31,10 @@ jdoubleArray newDoubleArray(JNIEnv *env, double *cont, int len);
 jintArray newIntArray(JNIEnv *env, int *cont, int len);
 jbooleanArray newBooleanArrayI(JNIEnv *env, int *cont, int len);
 jstring newString(JNIEnv *env, char *cont);
+jcharArray newCharArrayI(JNIEnv *env, int *cont, int len);
+jfloatArray newFloatArrayD(JNIEnv *env, double *cont, int len);
+jintArray newByteArray(JNIEnv *env, void *cont, int len);
+
 
 void releaseObject(JNIEnv *env, jobject o);
 jobject makeGlobal(JNIEnv *env, jobject o);
