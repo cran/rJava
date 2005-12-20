@@ -1,5 +1,5 @@
 ## define S4 classes
-setClass("jobjRef", representation(jobj="integer", jclass="character"), prototype=list(jobj=0:0, jclass=NULL))
+setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass=NULL))
 setClass("jarrayRef", representation("jobjRef", jsig="character"))
 setClass("jfloat", representation("numeric"))
 
@@ -31,10 +31,21 @@ setClass("jfloat", representation("numeric"))
   if (xr==-1) stop("Unable to initialize JVM.")
   if (xr==-2) stop("Another JVM is already running and rJava was unable to attach itself to that JVM.")
   if (xr==1 && classpath!="" && !silent) warning("Since another JVM is already running, it's not possible to change its class path. Therefore the value of the speficied classpath was ignored.")
-  .jniInitialized<<-TRUE # hack hack hack - we should use something better ..
+  #.jniInitialized<<-TRUE # hack hack hack - we should use something better ..
 
-  # get caches class objects for reflection
-  je <- parent.env(environment())
+  # this should remove any lingering .jclass objects from the global env
+  # left there by previous versions of rJava
+  pj <- grep("^\\.jclass",ls(1,all=TRUE),value=T)
+  if (length(pj)>0) { 
+    rm(list=pj,pos=1)
+    if (exists(".jniInitialized",1)) rm(list=".jniInitialized",pos=1)
+    if (!silent) warning("rJava found hidden Java objects in your workspace. Internal objects from previous versions of rJava were deleted. Please note that Java objects cannot be saved in the workspace.")
+  }
+  
+  # first, get our environment from the search list
+  je <- as.environment(match("package:rJava", search()))
+  assign(".jniInitialized", TRUE, je)
+  # get cached class objects for reflection
   assign(".jclassObject", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Object"), je)
   assign(".jclassClass", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Class"), je)
   assign(".jclassString", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.String"), je)
@@ -51,6 +62,8 @@ setClass("jfloat", representation("numeric"))
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Boolean")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
   assign(".jclass.boolean", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), je)
+
+  assign(".jzeroRef", .Call("RgetNullReference", PACKAGE="rJava"), je)
   
   invisible(xr)
 }
@@ -60,13 +73,15 @@ setClass("jfloat", representation("numeric"))
   class <- gsub("\\.","/",class) # allow non-JNI specifiation
   .jcheck()
   o<-.External("RcreateObject", class, ..., PACKAGE="rJava")
-  .C("checkExceptions",PACKAGE="rJava")
-  if (!is.null(o)) {
-    if (o==0)
-      warning(paste("Unable to create object of the class",class,", returning null reference."))
-    o<-new("jobjRef", jobj=o, jclass=class)
-  }
-  o
+  .jcheck()
+  if (is.null(o))
+    warning(paste("Unable to create object of the class",class,", returning null reference."))
+  new("jobjRef", jobj=o, jclass=class)
+}
+
+# create a new object reference manually (avoid! for backward compat only)
+.jmkref <- function(jobj, jclass="java/lang/Object") {
+  new("jobjRef", jobj=jobj, jclass=jclass)
 }
 
 # evaluates an array reference. If rawJNIRefSignature is set, then obj is not assumed to be
@@ -82,6 +97,8 @@ setClass("jfloat", representation("numeric"))
   }
   if (sig=="[I")
     return(.External("RgetIntArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[J")
+    return(.External("RgetLongArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[D")
     return(.External("RgetDoubleArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[Ljava/lang/String;" || sig=="[S")
@@ -92,7 +109,7 @@ setClass("jfloat", representation("numeric"))
   # if we don't know how to evaluate this, issue a warning and return the jarrayRef
   if (!silent)
     warning(paste("I don't know how to evaluate an array with signature",sig,". Returning a reference."))
-  new("jarrayRef", jobj=jobj, jclass=NULL, jsig=sig)
+  new("jarrayRef", jobj=jobj, jclass="java/lang/Object", jsig=sig)
 }
 
 .jcall <- function(obj, returnSig="V", method, ..., evalArray=TRUE, evalString=TRUE, interface="RcallMethod") {
@@ -102,7 +119,7 @@ setClass("jfloat", representation("numeric"))
     returnSig<-"Ljava/lang/String;"
   if (returnSig=="[S")
     returnSig<-"[Ljava/lang/String;"
-  if (inherits(obj,"jobjRef"))
+  if (inherits(obj,"jobjRef") || inherits(obj,"jarrayRef"))
     r<-.External("RcallMethod",obj@jobj,returnSig, method, ..., PACKAGE="rJava")
   else
     r<-.External("RcallStaticMethod",as.character(obj), returnSig, method, ..., PACKAGE="rJava")
@@ -110,10 +127,9 @@ setClass("jfloat", representation("numeric"))
     if (evalArray)
       r<-.jevalArray(r,rawJNIRefSignature=returnSig)
     else
-      r <- new("jarrayRef", jobj=r, jclass=NULL, jsig=returnSig)
+      r <- new("jarrayRef", jobj=r, jclass="java/lang/Object", jsig=returnSig)
   } else if (substr(returnSig,1,1)=="L") {
-    if (r==0)
-      return(NULL)
+    if (is.null(r)) return(NULL)
     
     if (returnSig=="Ljava/lang/String;" && evalString) {
       s<-.External("RgetStringValue",r, PACKAGE="rJava")
@@ -122,15 +138,16 @@ setClass("jfloat", representation("numeric"))
     }
     r <- new("jobjRef", jobj=r, jclass=substr(returnSig,2,nchar(returnSig)-1))
   }
-  .C("checkExceptions",PACKAGE="rJava")
+  .jcheck()
   r
 }
 
 .jfree <- function(obj) {
-  if (!inherits(obj,"jobjRef"))
+  warning("The use of '.jfree' is deprecated and dangerous, because even after freeing there may be references to that object. rJava now supports automatic finalizers, so an object is automatically freed once there are no references to it.")
+  if (!inherits(obj,"jobjRef") && !inherits(obj,"jarrayRef"))
     stop("obj is not a Java object")
   .External("RfreeObject",obj@jobj, PACKAGE="rJava")
-  .C("checkExceptions",PACKAGE="rJava");
+  .jcheck()
   invisible()
 }
 
@@ -139,8 +156,8 @@ setClass("jfloat", representation("numeric"))
   if (is.character(obj))
     return(obj)
   r<-NULL
-  if (!inherits(obj,"jobjRef"))
-    stop("can get value of Java objects only")
+  if (!inherits(obj,"jobjRef") && !inherits(obj,"jarrayRef"))
+        stop("can get value of Java objects only")
   if (!is.null(obj@jclass) && obj@jclass=="lang/java/String")
     r<-.External("RgetStringValue", obj@jobj, PACKAGE="rJava")
   else
@@ -150,7 +167,7 @@ setClass("jfloat", representation("numeric"))
 
 # casts java object into new.class - without(!) type checking
 .jcast <- function(obj, new.class) {
-  if (!inherits(obj, "jobjRef"))
+  if (!inherits(obj,"jobjRef") && !inherits(obj,"jarrayRef"))
     stop("connot cast anything but Java objects")
   r<-obj
   new.class <- gsub("\\.","/", new.class) # allow non-JNI specifiation
@@ -162,7 +179,7 @@ setClass("jfloat", representation("numeric"))
 # althought it sounds weird, the class is important when passed as
 # a parameter (you can even cast the result)
 .jnull <- function(class="java/lang/Object") { 
-  new("jobjRef", jobj=0:0, jclass=class)
+  new("jobjRef", jobj=.jzeroRef, jclass=class)
 }
 
 .jcheck <- function(silent=FALSE) {
@@ -179,4 +196,13 @@ setClass("jfloat", representation("numeric"))
 print.jobjRef <- function(x, ...) {
   print(paste("Java-Object: ", .jstrVal(x), sep=''), ...)
   invisible(x)
+}
+
+print.jarrayRef <- function(x, ...) {
+  print(paste("Java-Array-Object",x@jsig,": ", .jstrVal(x), sep=''), ...)
+  invisible(x)
+}
+
+.jarray <- function(x) {
+  .Call("RcreateArray", x, PACKAGE="rJava")
 }
