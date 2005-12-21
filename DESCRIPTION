@@ -1,5 +1,5 @@
 Package: rJava
-Version: 0.3-2
+Version: 0.3-3
 Title: Low-level R to Java interface
 Author: Simon Urbanek <urbanek@research.att.com>
 Maintainer: Simon Urbanek <urbanek@research.att.com>
