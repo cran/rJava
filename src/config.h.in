@@ -76,6 +76,9 @@
 /* Must be defined for platforms with bytesex inverse to intel style */
 #undef SWAPEND
 
+/* Set if threading support should be enabled. */
+#undef THREADS
+
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 

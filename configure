@@ -841,6 +841,15 @@ if test -n "$ac_init_help"; then
    esac
   cat <<\_ACEOF
 
+Optional Features:
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-threads        enable the use of threads, i.e. Java is run on a
+                          separate thread. This is necessary for some
+                          implementations of AWT. This feature is highly
+                          experimental, becasue of synchronization issues, so
+                          use with care. [no]
+
 Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
@@ -1312,6 +1321,15 @@ fi
 CC=`${R_HOME}/bin/R CMD config CC`;
 CFLAGS=`${R_HOME}/bin/R CMD config CFLAGS`
 
+
+## enable threads, i.e. Java is running is a separate thread
+# Check whether --enable-threads or --disable-threads was given.
+if test "${enable_threads+set}" = set; then
+  enableval="$enable_threads"
+  want_threads="${enableval}"
+else
+  want_threads=no
+fi;
 
 # Checks for programs.
 ac_ext=c
@@ -3883,6 +3901,32 @@ fi
 
 
 
+
+use_threads=no
+echo "$as_me:$LINENO: checking whether threads support is requested" >&5
+echo $ECHO_N "checking whether threads support is requested... $ECHO_C" >&6
+if test "${want_threads}" == yes; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+  echo "$as_me:$LINENO: checking whether threads can be enabled" >&5
+echo $ECHO_N "checking whether threads can be enabled... $ECHO_C" >&6
+  # check whether we can add THREADS support
+  UNAME=`uname`
+  # we don't want to run full AC_CANONICAL_HOST, all we care about is OS X
+  if test "x$UNAME" == "xDarwin"; then
+    use_threads=yes
+
+cat >>confdefs.h <<\_ACEOF
+#define THREADS 1
+_ACEOF
+
+  fi
+  echo "$as_me:$LINENO: result: ${use_threads}" >&5
+echo "${ECHO_T}${use_threads}" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
 
           ac_config_files="$ac_config_files src/Makevars"
 
