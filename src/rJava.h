@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000303 /* rJava v0.3-3 */
+#define RJAVA_VER 0x000306 /* rJava v0.3-6 */
 
 /* important changes between versions:
    0.3  - uses EXTPTR in jobj slot, adds finalizers
@@ -9,6 +9,10 @@
    0.1  - first public release */
 
 #include <jni.h>
+
+#ifndef Win32
+#include "config.h"
+#endif
 
 /* in rJava.c */
 extern JNIEnv *eenv; /* should NOT be used since not thread-safe; use getJNIEnv instead */
@@ -36,9 +40,11 @@ jfloatArray newFloatArrayD(JNIEnv *env, double *cont, int len);
 jintArray newByteArray(JNIEnv *env, void *cont, int len);
 
 
-void releaseObject(JNIEnv *env, jobject o);
 jobject makeGlobal(JNIEnv *env, jobject o);
+void releaseObject(JNIEnv *env, jobject o);
 void releaseGlobal(JNIEnv *env, jobject o);
 
 void printObject(JNIEnv *env, jobject o);
+
+int checkExceptionsX(JNIEnv *env, int silent);
 #endif
