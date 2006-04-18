@@ -18,8 +18,8 @@ extern "C" {
     
   /* jlong can always hold a pointer 
      to avoid warnings we go ptr->ulong->jlong */
-#define SEXP2L(s) ((jlong)((unsigned long)(s)))
-#define L2SEXP(s) ((SEXP)((unsigned long)(jlong)(s)))
+#define SEXP2L(s) ((jlong)(s))
+#define L2SEXP(s) ((SEXP)((jlong)(s)))
         
 jstring jri_callToString(JNIEnv *env, jobject o);
 
