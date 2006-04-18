@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R,v 1.1 2006/07/22 01:37:53 urbaneks Exp $
+## $Id: jinit.R,v 1.2 2006/09/07 17:42:24 urbaneks Exp $
 
 ## initialization
 
@@ -37,7 +37,7 @@
 
   # this should remove any lingering .jclass objects from the global env
   # left there by previous versions of rJava
-  pj <- grep("^\\.jclass",ls(1,all=TRUE),value=T)
+  pj <- grep("^\\.jclass",ls(1,all=TRUE),value=TRUE)
   if (length(pj)>0) { 
     rm(list=pj,pos=1)
     if (exists(".jniInitialized",1)) rm(list=".jniInitialized",pos=1)

@@ -8,6 +8,7 @@
 #include "Rcallbacks.h"
 #include "Rinit.h"
 #include "globals.h"
+#include "Rdecl.h"
 
 #ifdef Win32
 #include <windows.h>
