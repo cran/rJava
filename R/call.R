@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 190 2006-10-17 22:42:56Z urbaneks $
+## $Id: call.R 209 2007-01-10 18:51:28Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -20,8 +20,9 @@
 }
 
 # create a new object reference manually (avoid! for backward compat only!) the problem with this is that you need a valid `jobj' which is implementation-dependent so it is undefined outside rJava internals
+# it is now used by JRI.createRJavaRef, though
 .jmkref <- function(jobj, jclass="java/lang/Object") {
-  new("jobjRef", jobj=jobj, jclass=jclass)
+  new("jobjRef", jobj=jobj, jclass=gsub('\\.','/',jclass))
 }
 
 # evaluates an array reference. If rawJNIRefSignature is set, then obj is not assumed to be

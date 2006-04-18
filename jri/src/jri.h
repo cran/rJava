@@ -8,8 +8,8 @@
 
 /* the viewpoint is from R, i.e. "get" means "Java->R" whereas "put" means "R->Java" */
 
-#define JRI_VERSION 0x0306 /* JRI v0.3-6 */
-#define JRI_API     0x0106 /* API-version 1.6 */
+#define JRI_VERSION 0x0307 /* JRI v0.3-7 */
+#define JRI_API     0x0107 /* API-version 1.7 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +62,9 @@ void jri_error(char *fmt, ...);
        + rniInherits
        + rniGetSymbolName
        + rniInstallSymbol
+       + rniJavaToXref, rniXrefToJava
    1.6 JRI 0.3-2
        + rniPutBoolArray, rniPutBoolArrayI, rniGetBoolArrayI
+   1.7 JRI 0.3-7
+       + rniCons(+2 args)
 */

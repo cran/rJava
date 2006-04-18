@@ -1,6 +1,17 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
+0.3-7	2006-01-14
+    o	make sure rniJavaToXref creates a global reference
+
+    o	API 1.7: rniCons can accept two new arguments: tag and lang
+	rniLCons was added
+
+    o	assign now supports raw REXPs (XT_NONE)
+
+    o	createRJavaRef was added to create jobjRef R objects from
+	Java objects
+
 0.3-6	2006-11-29
     o	adapted to API change in R-devel
 

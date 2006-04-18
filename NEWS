@@ -1,6 +1,24 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
+0.4-13	2007-01-14
+    o	Fix Java-side memory leaks (temporary parameters to methods
+	were not propery released, thanks to Erik van Barneveld for
+	supplying a reproducible example).
+
+    o	.jmkref now accepts plain class names (with .)
+
+    o	Fix bug in .jarray (and underlying RcreateArray) that was
+	returning wrong class name if the contents class was an array.
+
+    o	Add --enable-callbacks option to configure (disabled by
+	default). The callbacks support is currently incomplete and
+	experimental.
+
+    o	Update URL to http://www.rforge.net/rJava/
+
+    o	Update to JRI 0.3-7 (LCons, createRJavaRef, assign XT_NONE) 
+
 0.4-12	2006-11-29
     o	Added documentation for .jthrow, .jclear and .jgetEx and
 	a bugfix in .jgetEx
