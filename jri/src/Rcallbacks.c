@@ -4,6 +4,7 @@
 #include "jri.h"
 #include "globals.h"
 #include "Rdecl.h"
+#include "Rcallbacks.h"
 
 #include "org_rosuda_JRI_Rengine.h"
 #include <R_ext/Parse.h>
@@ -61,7 +62,7 @@ JNIEnv *checkEnvironment()
     return env;
 }
 
-int Re_ReadConsole(char *prompt, unsigned char *buf, int len, int addtohistory)
+int Re_ReadConsole(RCCONST char *prompt, unsigned char *buf, int len, int addtohistory)
 {
 	jstring r,s;
 	jmethodID mid;
@@ -115,7 +116,7 @@ void Re_Busy(int which)
     jri_checkExceptions(lenv, 1);
 }
 
-void Re_WriteConsoleEx(char *buf, int len, int oType)
+void Re_WriteConsoleEx(RCCONST char *buf, int len, int oType)
 {
     JNIEnv *lenv=checkEnvironment();
     jri_checkExceptions(lenv, 1);
@@ -134,7 +135,7 @@ void Re_WriteConsoleEx(char *buf, int len, int oType)
 }
 
 /* old-style WriteConsole (for old R versions only) */
-void Re_WriteConsole(char *buf, int len)
+void Re_WriteConsole(RCCONST char *buf, int len)
 {
     Re_WriteConsoleEx(buf, len, 0);
 }
@@ -213,7 +214,7 @@ int Re_ChooseFile(int new, char *buf, int len)
 	}
 }
 
-void Re_ShowMessage(char *buf)
+void Re_ShowMessage(RCCONST char *buf)
 {
 	jstring s;
 	jmethodID mid;
@@ -397,11 +398,11 @@ void Rstd_Suicide(char *s)
 
 */
 int Re_ShowFiles(int nfile, 		/* number of files */
-                 char **file,		/* array of filenames */
-                 char **headers,	/* the `headers' args of file.show. Printed before each file. */
-                 char *wtitle,          /* title for window = `title' arg of file.show */
+                 RCCONST char **file,	/* array of filenames */
+                 RCCONST char **headers,/* the `headers' args of file.show. Printed before each file. */
+                 RCCONST char *wtitle,  /* title for window = `title' arg of file.show */
                  Rboolean del,	        /* should files be deleted after use? */
-                 char *pager)		/* pager to be used */
+                 RCCONST char *pager)	/* pager to be used */
 {
     return 1;
 }

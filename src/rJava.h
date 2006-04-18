@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000600 /* rJava v0.6-0 */
+#define RJAVA_VER 0x000601 /* rJava v0.6-1 */
 
 /* important changes between versions:
    3.0  - adds compiler
@@ -17,6 +17,7 @@
 #include <jni.h>
 #include <R.h>
 #include <Rinternals.h>
+#include <Rversion.h>
 
 /* flags used in function declarations:
    HIDE - hidden (used internally in rJava only)
@@ -88,6 +89,16 @@ void profReport(char *fmt, ...);
 #else
 #define BEGIN_RJAVA_CALL {
 #define END_RJAVA_CALL };
+#endif
+
+/* define mkCharUTF8 in a compatible fashion */
+#if R_VERSION < R_Version(2,7,0)
+#define mkCharUTF8(X) mkChar(X)
+#define CHAR_UTF8(X) CHAR(X)
+#else
+#define mkCharUTF8(X) mkCharCE(X, CE_UTF8)
+#define CHAR_UTF8(X) rj_char_utf8(X)
+extern const char *rj_char_utf8(SEXP);
 #endif
 
 /* in callbacks.c */
