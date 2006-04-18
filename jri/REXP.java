@@ -168,6 +168,15 @@ public class REXP {
 		this(re, exp, true);
 	}
 	
+	protected void finalize() throws Throwable {
+		try {
+			if (Xt == XT_NONE && xp != 0 && eng != null) // release underlying R obejct if it was preserved
+				eng.rniRelease(xp);
+		} finally {
+			super.finalize();
+		}
+	}
+
 	public REXP(Rengine re, long exp, boolean convert) {
 		eng = re;
 		xp = exp;
@@ -176,6 +185,8 @@ public class REXP {
 
 		if (!convert) {
 			Xt = XT_NONE;
+			if (re != null && xp != 0)
+				re.rniPreserve(xp); // preserve the object so it doesn't get garbage-collected while we are referencing it
 			return;
 		}
 				

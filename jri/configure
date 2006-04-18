@@ -3981,13 +3981,19 @@ case "${host_os}" in
        if test -z "${FORCE_NATIVE}"; then
           # find out the archs of JavaVM and build all of them
           jarchs=`file -L /System/Library/Frameworks/JavaVM.framework/JavaVM 2>/dev/null | sed -n 's/.*for architecture //p' | sed 's:).*::' | sed 's:ppc7.*:ppc:' | tr '\n' ' '`
-	  if test -n "${jarchs}"; then
-	     echo "*** building fat JNI with gcc for architectures: ${jarchs} ***"
+	  jrarchs=''
+	  ## ok, we have Java archs, but R may not be available for all of those
+	  for a in ${jarchs}; do
+	     if test -e "${R_HOME}/lib/$a"; then jrarchs="${jrarchs} $a"; fi
+	  done
+	  ## if have have more than one arch, display info and add -arch flags
+	  if test -n "${jrarchs}"; then
+	     echo "*** building fat JNI with gcc for architectures: ${jrarchs} ***"
 	     echo "*** use FORCE_NATIVE=yes to avoid this and use R settings ***"
 	     CFLAGS=""
 	     LDFLAGS=""
 	     CC="gcc"
-	     for a in ${jarchs}; do CC="${CC} -arch $a"; done
+	     for a in ${jrarchs}; do CC="${CC} -arch $a"; done
 	  fi
        fi
     fi

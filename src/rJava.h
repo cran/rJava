@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000602 /* rJava v0.6-2 */
+#define RJAVA_VER 0x000603 /* rJava v0.6-3 */
 
 /* important changes between versions:
    3.0  - adds compiler
@@ -101,6 +101,13 @@ void profReport(char *fmt, ...);
 extern const char *rj_char_utf8(SEXP);
 #endif
 
+/* signatures are stored in a local buffer if they fit. Only if they don't fit a heap buffer is allocated and used. */
+typedef struct sig_buffer {
+	char *sig; /* if sig doesn't point to sigbuf then it's allocated from heap */
+	int maxsig, len;
+	char sigbuf[256]; /* default size of the local buffer (on the stack) */
+} sig_buffer_t;
+
 /* in callbacks.c */
 extern int RJava_has_control;
 
@@ -129,7 +136,9 @@ extern jobject  oClassLoader;
 /* in Rglue */
 HIDE SEXP j2SEXP(JNIEnv *env, jobject o, int releaseLocal);
 HIDE SEXP new_jobjRef(JNIEnv *env, jobject o, const char *klass);
-HIDE jvalue  R1par2jvalue(JNIEnv *env, SEXP par, char *sig, jobject *otr);
+HIDE jvalue R1par2jvalue(JNIEnv *env, SEXP par, sig_buffer_t *sig, jobject *otr);
+HIDE void init_sigbuf(sig_buffer_t *sb);
+HIDE void done_sigbuf(sig_buffer_t *sb);
 
 /* in tools.c */
 HIDE jstring callToString(JNIEnv *env, jobject o);
