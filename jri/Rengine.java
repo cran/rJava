@@ -178,7 +178,7 @@ public class Rengine extends Thread {
     /** RNI: evaluate R expression (do NOT use directly unless you know exactly what you're doing, where possible use {@link #eval} instead). Note that no synchronization is performed!
 	@param exp reference to the expression to evaluate
 	@param rho environment to use for evaluation (or 0 for global environemnt)
-	@return result of the evaluation */
+	@return result of the evaluation or 0 if an error occurred */
     public synchronized native long rniEval(long exp, long rho);
 
 	/** RNI: protect an R object (c.f. PROTECT macro in C)
@@ -545,9 +545,9 @@ public class Rengine extends Thread {
             }
              */
             long pr = rniParse(s, 1);
-            if (pr > 0) {
+            if (pr != 0) {
                 long er = rniEval(pr, 0);
-                if (er > 0) {
+                if (er != 0) {
                     REXP x = new REXP(this, er, convert);
                     if (DEBUG>0) System.out.println("Rengine.eval("+s+"): END (OK)"+Thread.currentThread());
                     return x;
@@ -579,11 +579,11 @@ public class Rengine extends Thread {
         if (lockStatus==1) return null; // 1=locked by someone else
         boolean obtainedLock=(lockStatus==0);
         try {
-            long pr=rniParse(s, 1);
-            if (pr>0) {
-                long er=rniEval(pr, 0);
-                if (er>0) {
-                    REXP x=new REXP(this, er, convert);
+            long pr = rniParse(s, 1);
+            if (pr != 0) {
+                long er = rniEval(pr, 0);
+                if (er != 0) {
+                    REXP x = new REXP(this, er, convert);
                     return x;
                 }
             }
