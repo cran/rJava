@@ -2,6 +2,8 @@
 --------------------------
 
 0.4-0	(under development)
+    o	work around broken MinGW runtimes
+
     o	allow JRI to hook into a running R process (and thusly provide
 	rJava with callbacks)
 
