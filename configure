@@ -4002,9 +4002,7 @@ echo $ECHO_N "checking whether JRI should be compiled (autodetect)... $ECHO_C" >
 echo "${ECHO_T}${has_R_shlib}" >&6; }
    want_jri=${has_R_shlib}
 fi
-
-
-if test "x${want_jri}" = xyes; then
+ if test "x${want_jri}" = xyes; then
   WANT_JRI_TRUE=
   WANT_JRI_FALSE='#'
 else
@@ -4016,7 +4014,7 @@ fi
 { echo "$as_me:$LINENO: checking whether debugging output should be enabled" >&5
 echo $ECHO_N "checking whether debugging output should be enabled... $ECHO_C" >&6; }
 if test "${want_debug}" = yes; then
-  JAVA_INC="-g -DRJ_DEBUG ${JAVA_INC}"
+  JAVA_CPPFLAGS="-g -DRJ_DEBUG ${JAVA_CPPFLAGS}"
   { echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6; }
 else

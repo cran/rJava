@@ -260,11 +260,17 @@ case "${host_os}" in
        RLD="-framework R"
        RINC="-I${R_HOME}/include"
        # we can even cross-compile, maybe
-       if test `arch` = i386 -a -z "${FORCE_NATIVE}"; then
-          CFLAGS=""
-	  LDFLAGS=""
-	  CC="gcc -arch i386 -arch ppc"
-	  echo "=== building universal JNI library - use FORCE_NATIVE=yes to avoid this ==="
+       if test -z "${FORCE_NATIVE}"; then
+          # find out the archs of JavaVM and build all of them
+          jarchs=`file -L /System/Library/Frameworks/JavaVM.framework/JavaVM 2>/dev/null | sed -n 's/.*for architecture //p' | sed 's:).*::' | sed 's:ppc7.*:ppc:' | tr '\n' ' '`
+	  if test -n "${jarchs}"; then
+	     echo "*** building fat JNI with gcc for architectures: ${jarchs} ***"
+	     echo "*** use FORCE_NATIVE=yes to avoid this and use R settings ***"
+	     CFLAGS=""
+	     LDFLAGS=""
+	     CC="gcc"
+	     for a in ${jarchs}; do CC="${CC} -arch $a"; done
+	  fi
        fi
     fi
     ;;
