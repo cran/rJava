@@ -17,7 +17,7 @@ public class Rengine extends Thread {
 	/**	API version of the Rengine itself; see also rniGetVersion() for binary version. It's a good idea for the calling program to check the versions of both and abort if they don't match. This should be done using {@link #versionCheck}
 		@return version number as <code>long</code> in the form <code>0xMMmm</code> */
     public static long getVersion() {
-        return 0x0105;
+        return 0x0106;
     }
 
     /** check API version of this class and the native binary. This is usually a good idea to ensure consistency.
