@@ -414,6 +414,7 @@ public class Rengine extends Thread {
 	@param exp value
 	@param rho environment (use 0 for the global environment)
 	@return <code>true</code> if successful, <code>false</code> on failure (usually this means that the binding is locked)
+        @since API 1.10, JRI 0.5-1 (existed before but returned <code>void</code>)
     */
     public synchronized native boolean rniAssign(String name, long exp, long rho);
     

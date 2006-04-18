@@ -101,6 +101,15 @@ void initRinside() {
 #include <winreg.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+/* before we include RStatup.h we need to work around a bug in it for Win64:
+   it defines wrong R_size_t if R_SIZE_T_DEFINED is not set */
+#if defined(WIN64) && ! defined(R_SIZE_T_DEFINED)
+#include <stdint.h>
+#define R_size_t uintptr_t
+#define R_SIZE_T_DEFINED 1
+#endif
+
 #include "R_ext/RStartup.h"
 
 #ifndef WIN64
@@ -198,17 +207,26 @@ int initR(int argc, char **argv)
     R_DefParams(Rp);
     if(getenv("R_HOME")) {
 	strcpy(RHome, getenv("R_HOME"));
-    } else { /* fetch R_HOME from the registry */
-      if ((RegOpenKeyEx(HKEY_LOCAL_MACHINE,"SOFTWARE\\R-core\\R",0,KEY_QUERY_VALUE,&k)!=ERROR_SUCCESS ||
+    } else { /* fetch R_HOME from the registry - try preferred architecture first */
+#ifdef WIN64
+      const char *pref_path = "SOFTWARE\\R-core\\R64";
+#else
+      const char *pref_path = "SOFTWARE\\R-core\\R32";
+#endif
+      if ((RegOpenKeyEx(HKEY_LOCAL_MACHINE, pref_path, 0, KEY_QUERY_VALUE, &k) != ERROR_SUCCESS ||
 	   RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS) &&
-	  (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\R-core\\R",0,KEY_QUERY_VALUE,&k)!=ERROR_SUCCESS ||
+	  (RegOpenKeyEx(HKEY_CURRENT_USER, pref_path, 0, KEY_QUERY_VALUE, &k) != ERROR_SUCCESS ||
+           RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS) &&
+	  (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\R-core\\R", 0, KEY_QUERY_VALUE, &k) != ERROR_SUCCESS ||
+	   RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS) &&
+	  (RegOpenKeyEx(HKEY_CURRENT_USER, "SOFTWARE\\R-core\\R", 0, KEY_QUERY_VALUE, &k) != ERROR_SUCCESS ||
            RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS)) {
-	    fprintf(stderr, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n");
-	    MessageBox(0, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n", "Can't find R home", MB_OK|MB_ICONERROR);
-	    return -2;
-	};
-	sprintf(rhb,"R_HOME=%s",RHome);
-	putenv(rhb);
+	fprintf(stderr, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n");
+	MessageBox(0, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n", "Can't find R home", MB_OK|MB_ICONERROR);
+	return -2;
+      }
+      sprintf(rhb,"R_HOME=%s",RHome);
+      putenv(rhb);
     }
     /* on Win32 this should set R_Home (in R_SetParams) as well */
     Rp->rhome = RHome;
@@ -241,10 +259,11 @@ int initR(int argc, char **argv)
     Rp->R_Interactive = TRUE;
     Rp->RestoreAction = SA_RESTORE;
     Rp->SaveAction = SA_SAVEASK;
+    /* process common command line options */
+    R_common_command_line(&argc, argv, Rp);
+    /* what is left should be assigned to args */
     R_set_command_line_arguments(argc, argv);
 
-    /* Rp->nsize = 300000;
-    Rp->vsize = 6e6; */
     R_SetParams(Rp); /* so R_ShowMessage is set */
     R_SizeFromEnv(Rp);
     R_SetParams(Rp);
