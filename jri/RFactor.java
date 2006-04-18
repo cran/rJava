@@ -11,7 +11,7 @@ import java.util.*;
     attribute. The parser code of REXP converts such constructs directly into
     the RFactor objects and defines an own XT_FACTOR type 
     
-    @version $Id: RFactor.java,v 1.2 2006/05/31 01:23:41 urbaneks Exp $
+    @version $Id: RFactor.java 2469 2006-05-31 01:23:41Z urbaneks $
 */    
 public class RFactor extends Object {
     /** IDs (content: Integer) each entry corresponds to a case, ID specifies the category */

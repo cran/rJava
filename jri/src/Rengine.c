@@ -3,7 +3,15 @@
 
 #include "jri.h"
 #include "org_rosuda_JRI_Rengine.h"
+#include <Rversion.h>
 #include <R_ext/Parse.h>
+
+/* the # of arguments to R_ParseVector changed since R 2.5.0 */
+#if R_VERSION < R_Version(2,5,0)
+#define RS_ParseVector R_ParseVector
+#else
+#define RS_ParseVector(A,B,C) R_ParseVector(A,B,C,R_NilValue)
+#endif
 
 #include "Rcallbacks.h"
 #include "Rinit.h"
@@ -89,7 +97,7 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniParse
 #ifdef JRI_DEBUG
       printf("parsing \"%s\"\n", CHAR(STRING_ELT(cv,0)));
 #endif
-      pstr=R_ParseVector(cv, parts, &ps);
+      pstr=RS_ParseVector(cv, parts, &ps);
 #ifdef JRI_DEBUG
       printf("parse status=%d, result=%x, type=%d\n", ps, (int) pstr, (pstr!=0)?TYPEOF(pstr):0);
 #endif

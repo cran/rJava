@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R,v 1.2 2006/09/07 17:42:24 urbaneks Exp $
+## $Id: jinit.R 192 2006-10-17 23:41:22Z urbaneks $
 
 ## initialization
 
@@ -43,27 +43,28 @@
     if (exists(".jniInitialized",1)) rm(list=".jniInitialized",pos=1)
     if (!silent) warning("rJava found hidden Java objects in your workspace. Internal objects from previous versions of rJava were deleted. Please note that Java objects cannot be saved in the workspace.")
   }
-  
-  # first, get our environment from the search list
-  je <- as.environment(match("package:rJava", search()))
-  assign(".jniInitialized", TRUE, je)
+
+  ##--- HACK-WARNING: we're operating directly on the namespace environment
+  ##                  this could be dangerous.
+  for (x in .delayed.variables) unlockBinding(x, .env)
+  assign(".jniInitialized", TRUE, .env)
   # get cached class objects for reflection
-  assign(".jclassObject", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Object"), je)
-  assign(".jclassClass", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Class"), je)
-  assign(".jclassString", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.String"), je)
+  assign(".jclassObject", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Object"), .env)
+  assign(".jclassClass", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Class"), .env)
+  assign(".jclassString", .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.String"), .env)
 
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Integer")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
-  assign(".jclass.int", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), je)
+  assign(".jclass.int", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Double")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
-  assign(".jclass.double", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), je)
+  assign(".jclass.double", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Float")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
-  assign(".jclass.float", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), je)
+  assign(".jclass.float", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Boolean")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
-  assign(".jclass.boolean", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), je)
+  assign(".jclass.boolean", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
 
   if (xr==1 && nchar(classpath)>0) {
     # it's a hack, so we run it in try(..) in case BadThings(TM) happen ...
@@ -71,12 +72,24 @@
     if (inherits(cpr, "try-error")) {
       .jcheck(silent=TRUE)
       if (!silent) warning("Another VM is running already and the VM did not allow me to append paths to the class path.")
-      assign(".jinit.merge.error", cpr, je)
+      assign(".jinit.merge.error", cpr, .env)
     }
     if (length(parameters)>0 && !silent)
       warning("Cannot set VM parameters, because VM is running already.")
   }
-
+  for (x in .delayed.variables) lockBinding(x, .env)
+  
+  ## now we need to update the attached namespace (package env)  as well
+  m <- match(paste("package", getNamespaceName(.env), sep = ":"), search())[1]
+  if (!is.na(m)) { ## only is it is attached
+    pe <- as.environment(m)
+    for (x in .delayed.variables) {
+      unlockBinding(x, pe)
+      pe[[x]] <- .env[[x]]
+      lockBinding(x, pe)
+    }
+  }   
+  
   invisible(xr)
 }
 
