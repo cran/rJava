@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 253 2007-03-05 18:45:19Z urbanek $
+## $Id: call.R 301 2007-06-21 10:12:11Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -42,24 +42,28 @@
     jobj<-obj@jobj
   }
   if (sig=="[I")
-    return(.External("RgetIntArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetIntArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[J")
-    return(.External("RgetLongArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetLongArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[Z")
-    return(.External("RgetBoolArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetBoolArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[B")
-	return(.External("RgetByteArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetByteArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[D")
-    return(.External("RgetDoubleArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetDoubleArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[S")
+    return(.Call("RgetShortArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[C")
+    return(.Call("RgetCharArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[F")
-    return(.External("RgetFloatArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetFloatArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[Ljava/lang/String;")
-    return(.External("RgetStringArrayCont", jobj, PACKAGE="rJava"))
+    return(.Call("RgetStringArrayCont", jobj, PACKAGE="rJava"))
   else if (substr(sig,1,2)=="[L")
-    return(lapply(.External("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
+    return(lapply(.Call("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
                   function(x) new("jobjRef", jobj=x, jclass=substr(sig,3,nchar(sig)-1)) ))
   else if (substr(sig,1,2)=="[[")
-    return(lapply(.External("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
+    return(lapply(.Call("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
                   function(x) new("jarrayRef", jobj=x, jclass="", jsig=substr(sig,2,nchar(sig))) ))
   # if we don't know how to evaluate this, issue a warning and return the jarrayRef
   if (!silent)
@@ -79,9 +83,10 @@
   if (returnSig=="T") returnSig <- "S"
   if (returnSig=="[T") returnSig <- "[S"
   if (inherits(obj,"jobjRef") || inherits(obj,"jarrayRef"))
-    r<-.External("RcallMethod",obj@jobj,returnSig, method, ..., PACKAGE="rJava")
+    r<-.External(interface, obj@jobj, returnSig, method, ..., PACKAGE="rJava")
   else
-    r<-.External("RcallStaticMethod",as.character(obj), returnSig, method, ..., PACKAGE="rJava")
+    r<-.External(interface, as.character(obj), returnSig, method, ..., PACKAGE="rJava")
+  if (returnSig=="V") return(invisible(NULL))
   if (substr(returnSig,1,1)=="[") {
     if (evalArray)
       r<-.jevalArray(r,rawJNIRefSignature=returnSig)
@@ -91,11 +96,11 @@
     if (is.null(r)) return(r)
     
     if (returnSig=="Ljava/lang/String;" && evalString)
-      return(.External("RgetStringValue",r, PACKAGE="rJava"))
+      return(.External("RgetStringValue", r, PACKAGE="rJava"))
     r <- new("jobjRef", jobj=r, jclass=substr(returnSig,2,nchar(returnSig)-1))
   }
   if (check) .jcheck()
-  r
+  if (.conv.in$.) .convert.in(r) else r
 }
 
 .jstrVal <- function(obj) {
@@ -146,7 +151,7 @@
 }
 
 # creates a new "null" object of the specified class
-# althought it sounds weird, the class is important when passed as
+# although it sounds weird, the class is important when passed as
 # a parameter (you can even cast the result)
 .jnull <- function(class="java/lang/Object") { 
   new("jobjRef", jobj=.jzeroRef, jclass=class)
@@ -208,7 +213,10 @@ is.jnull <- function(x) {
     stop("invalid class name")
   cl<-gsub("/",".",cl)
   a <- NULL
-  try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,TRUE,.jcall("java/lang/ClassLoader", "Ljava/lang/ClassLoader;", "getSystemClassLoader"), check=FALSE))
+  if (!is.jnull(.rJava.class.loader))
+    try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,TRUE,.jcast(.rJava.class.loader,"java.lang.ClassLoader"), check=FALSE))
+  else
+    try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,check=FALSE))
   .jcheck(silent=TRUE)
   if (!silent && is.jnull(a)) stop("class not found")
   a
@@ -247,11 +255,40 @@ is.jnull <- function(x) {
     .jcall(o, "Z", "equals", .jcast(b, "java/lang/Object"))
 }
 
+.jfield <- function(o, sig=NULL, name, true.class=is.null(sig), convert=TRUE) {
+  if (length(sig)) {
+    if (sig=='S') sig<-"Ljava/lang/String;"
+    if (sig=='T') sig<-"S"
+    if (sig=='[S') sig<-"[Ljava/lang/String;"
+    if (sig=='[T') sig<-"[S"
+  }
+  r <- .Call("RgetField", o, sig, as.character(name), as.integer(true.class), PACKAGE="rJava")
+  if (inherits(r, "jobjRef")) {
+    if (substr(r@jclass,1,1) == "[") {
+      if (convert)
+        r <- .jevalArray(r, rawJNIRefSignature=r@jclass)
+      else
+        r <- new("jarrayRef", jobj=r@jobj, jclass=r@jclass, jsig=r@jclass)
+    }
+    if (convert && inherits(r, "jobjRef")) {
+      if (r@jclass == "java/lang/String")
+        return(.External("RgetStringValue", r@jobj, PACKAGE="rJava"))
+      if (.conv.in$.) return(.convert.in(r))
+    }
+  }
+  r
+}
+
+".jfield<-" <- function(o, name, value)
+  .Call("RsetField", o, name, value, PACKAGE="rJava")
+
 # there is no way to distinguish between double and float in R, so we need to mark floats specifically
 .jfloat <- function(x) new("jfloat", as.numeric(x))
 # the same applies to long
 .jlong <- function(x) new("jlong", as.numeric(x))
 # and byte
 .jbyte <- function(x) new("jbyte", as.integer(x))
+# and short
+.jshort <- function(x) new("jshort", as.integer(x))
 # and char (experimental)
 .jchar <- function(x) new("jchar", as.integer(x))

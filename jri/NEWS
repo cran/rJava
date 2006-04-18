@@ -2,6 +2,15 @@
 --------------------------
 
 0.4-0	(under development)
+    o	adapt to changes in R-devel
+
+    o	add -I. to CFLAGS for compatibility (thanks to BDR)
+
+    o	added RConsoleOuputStream class
+
+    o	API 1.8: added rniPrint, added int oType parameter to the
+	rWriteConsole callback
+
     o	work around broken MinGW runtimes
 
     o	allow JRI to hook into a running R process (and thusly provide

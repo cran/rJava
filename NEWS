@@ -1,36 +1,55 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
-0.4-16	2007-04-22
-    o	Work around a change in the most recent MinGW runtime (JRI)
+0.5-0	2007-08-22
+    o	**API CHANGE**
+	The order of arguments of .jfield has been changed to match
+	the order used in .jcall and the return value is as expected
+	and doesn't need .jsimplify anymore.
 
-0.4-15	2007-04-17
-    o	Use system class loader in .jfindClass
+    o	The implementation of .jfield no longer uses reflection
+	it supports static fileds and .field<-() was added.
 
-    o	Adapt to putenv/sysenv change
+    o	Consolidate interface code for static/non-static calls.
+	It is now possible to call a static method using a non-static
+	object.
 
-    o	Don't issue a warning in .jinit if the parameters are taken
-	from the "java.parameters" option (the default).
+    o	Add .jpackage function for initialization of Java packages.
+	See documentation for details, packages should no longer
+	use .jinit in their initialization code.
 
-0.4-14	2007-02-25
-    o	Fixed JDK 1.6 detection on Windows
+    o	Add preliminary JRI support from R (see .jengine)
+
+    o	Prepare hooks for de-serialization
+
+    o	Add support for short Java type
+
+    o	Add support for convertors
+
+    o	Fix R-devel compatibility issues
+
+    o	Fix a memory leak in string array handling
+
+    o	Use Java settings from R for compilation
+
+    o	Add a custom class loader
 
     o	Fix a bug in .jcastToArray that produced invalid signatures
 
     o	Added support for [Z in .jevalArray
 
-    o	Fixed minor Java memory leak in class objects handling
+    o	Fix a bug in .jarray missing [ prefix for native type arrays
 
-    o	Option "java.parameters" specifies the default parameters
-	for the JVM. If unset, rJava sets it to "-Xmx512m" on load
-	to increase the heap size to 512MB.
-
-    o	Replace Sys.putenv with Sys.getenv when necessary
+0.4 branch has been branched off the trunk, see 0.4-branch for NEWS
 
 0.4-13	2007-01-14
     o	Fix Java-side memory leaks (temporary parameters to methods
 	were not propery released, thanks to Erik van Barneveld for
 	supplying a reproducible example).
+
+    o	Fix a bug that caused only the first VM parameter to be passed
+	on during initialization (thanks to Bernard Rosman for
+	reporting).
 
     o	.jmkref now accepts plain class names (with .)
 

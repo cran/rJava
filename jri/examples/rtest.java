@@ -12,7 +12,7 @@ import org.rosuda.JRI.RMainLoopCallbacks;
 
 class TextConsole implements RMainLoopCallbacks
 {
-    public void rWriteConsole(Rengine re, String text) {
+    public void rWriteConsole(Rengine re, String text, int oType) {
         System.out.print(text);
     }
     

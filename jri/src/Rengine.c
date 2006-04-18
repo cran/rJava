@@ -490,6 +490,20 @@ JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniRJavaUnlock
   return RJava_clear_lock();
 }
 
+JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniPrint
+(JNIEnv *env, jobject this, jstring s, jint oType) {
+  if (s) {
+    const char *c = (*env)->GetStringUTFChars(env, s, 0);
+    if (c) {
+      if (oType)
+	REprintf("%s", c);
+      else
+	Rprintf("%s", c);
+    }
+    (*env)->ReleaseStringUTFChars(env, s, c);
+  }
+}
+
 JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniStop
 (JNIEnv *env, jobject this, jint flag) {
 #ifdef Win32

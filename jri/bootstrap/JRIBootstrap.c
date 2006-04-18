@@ -58,7 +58,7 @@ JNIEXPORT jobjectArray JNICALL Java_JRIBootstrap_regsubkeys
   jobjectArray res = 0;
   if (cKey) {
     HKEY key;
-    if (RegOpenKeyEx(keyDB[iRoot], cKey, 0, KEY_ENUMERATE_SUB_KEYS_VALUE, &key) == ERROR_SUCCESS) {
+    if (RegOpenKeyEx(keyDB[iRoot], cKey, 0, KEY_ENUMERATE_SUB_KEYS|KEY_QUERY_VALUE, &key) == ERROR_SUCCESS) {
       int n = 0, i = 0;
       char buf[256];
       jclass cStr;
@@ -68,7 +68,7 @@ JNIEXPORT jobjectArray JNICALL Java_JRIBootstrap_regsubkeys
       while (RegEnumKey(key, n, buf, 254) == ERROR_SUCCESS) n++;
       /* pass 2: get the values */
       cStr = (*env)->FindClass(env, "java/lang/String");
-      res = (*env)->NewObjectArray(env, n, cStr);
+      res = (*env)->NewObjectArray(env, n, cStr, 0);
       (*env)->DeleteLocalRef(env, cStr);
       while (i<n && RegEnumKey(key, i, buf, 254) == ERROR_SUCCESS)
 	(*env)->SetObjectArrayElement(env, res, i++,
@@ -92,6 +92,11 @@ JNIEXPORT jstring JNICALL Java_JRIBootstrap_expand
   }
   if (cVal) (*env)->ReleaseStringUTFChars(env, sVal, cVal);
   return res;
+}
+
+JNIEXPORT jboolean JNICALL Java_JRIBootstrap_hasreg
+(JNIEnv *env, jclass cl) {
+  return JNI_TRUE;
 }
 
 #else
@@ -134,4 +139,28 @@ JNIEXPORT jstring JNICALL Java_JRIBootstrap_expand
   return sVal;
 }
 
+JNIEXPORT jboolean JNICALL Java_JRIBootstrap_hasreg
+(JNIEnv *env, jclass cl) {
+  return JNI_FALSE;
+}
+
 #endif
+
+JNIEXPORT jstring JNICALL Java_JRIBootstrap_arch
+(JNIEnv *env, jclass cl) {
+  const char *ca = "unknown";
+  /* this is mainly for Macs so we can determine the correct arch ... */
+#ifdef __ppc__
+  ca = "ppc";
+#endif
+#ifdef __i386__
+  ca = "i386";
+#endif
+#ifdef __x86_64__
+  ca = "x86_64";
+#endif
+#ifdef __ppc64__
+  ca = "ppc64";
+#endif
+  return (*env)->NewStringUTF(env, ca);
+}

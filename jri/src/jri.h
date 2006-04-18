@@ -5,11 +5,12 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <Rdefines.h>
+#include <Rversion.h>
 
 /* the viewpoint is from R, i.e. "get" means "Java->R" whereas "put" means "R->Java" */
 
 #define JRI_VERSION 0x0400 /* JRI v0.4-0 */
-#define JRI_API     0x0107 /* API-version 1.7 */
+#define JRI_API     0x0108 /* API-version 1.8 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,4 +68,6 @@ void jri_error(char *fmt, ...);
        + rniPutBoolArray, rniPutBoolArrayI, rniGetBoolArrayI
    1.7 JRI 0.3-7
        + rniCons(+2 args)
+   1.8 JRI 0.4-0
+       + rniPrint
 */

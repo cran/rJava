@@ -7,6 +7,8 @@ import java.util.zip.ZipEntry;
 import java.lang.reflect.Method;
 
 public class Boot {
+    public static String bootFile = null;
+
 	public static String findInPath(String path, String fn) {
 		StringTokenizer st = new StringTokenizer(path, File.pathSeparator);
 		while (st.hasMoreTokens()) {
@@ -56,6 +58,7 @@ public class Boot {
 					ZipEntry ze = jf.getEntry(fullName);
 					if (ze != null) { // found it inside a JAR file						
 						try {
+						    bootFile = f.toString();
 							File tf = File.createTempFile(basename,ext);
 							System.out.println("Boot.findNativeLibrary: found in a JAR ("+jf+"), extracting into "+tf);
 							InputStream zis = jf.getInputStream(ze);
@@ -104,12 +107,16 @@ public class Boot {
 		
 		// register boot library with MCL
 		mcl.registerLibrary("boot", new File(nl));
-		
+
 		// add path necessary for loading JRIBootstrap to MCL
 		String cp = System.getProperty("java.class.path");
 		StringTokenizer st = new StringTokenizer(cp, File.pathSeparator);
-		while (st.hasMoreTokens())
-			mcl.addClassPath(st.nextToken());
+		while (st.hasMoreTokens()) {
+		    String p = st.nextToken();
+		    mcl.addClassPath(p);
+		    // we assume that the first file on the CP is us (FIXME: verify this!)
+		    if (bootFile==null && (new File(p)).isFile()) bootFile=p;
+		}
 		
 		// call static bootstrap method
 		try {
@@ -118,7 +125,7 @@ public class Boot {
 			Method m = stage2class.getMethod("bootstrap", new Class[] { String[].class });
 			m.invoke(null, new Object[] { args });
 		} catch (Exception rtx) {
-			System.err.println("ERROR: Unable to invoke bootstrap method in JRIBootstrap! ("+rtx.getMessage()+")");
+			System.err.println("ERROR: Unable to invoke bootstrap method in JRIBootstrap! ("+rtx+")");
 			rtx.printStackTrace();
 			System.exit(2);
 		}
