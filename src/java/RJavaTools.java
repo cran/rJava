@@ -1,3 +1,22 @@
+// RJavaTools.java: rJava - low level R to java interface
+//
+// Copyright (C) 2009 - 2010	Simon Urbanek and Romain Francois
+//
+// This file is part of rJava.
+//
+// rJava is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 2 of the License, or
+// (at your option) any later version.
+//
+// rJava is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with rJava.  If not, see <http://www.gnu.org/licenses/>.
+
 import java.lang.reflect.Method ;
 import java.lang.reflect.Field ;
 import java.lang.reflect.Constructor ;
@@ -15,7 +34,7 @@ import java.util.Vector ;
  * by Romain Francois <francoisromain@free.fr> licensed under GPL v2 or higher.
  */
 public class RJavaTools {
-		
+	
 	/**
 	 * Returns an inner class of the class with the given simple name
 	 * 
@@ -316,7 +335,13 @@ public class RJavaTools {
 	 * and invoke newInstance on the resolved constructor
 	 */
 	public static Object newInstance( Class o_clazz, Object[] args, Class[] clazzes ) throws Throwable {
-		Constructor cons = getConstructor( o_clazz, clazzes );
+		
+		boolean[] is_null = new boolean[args.length];
+		for( int i=0; i<args.length; i++) {
+			is_null[i] = ( args[i] == null ) ;
+		}
+		
+		Constructor cons = getConstructor( o_clazz, clazzes, is_null );
 		
 		/* enforcing accessibility (workaround for bug 128) */
 		boolean access = cons.isAccessible(); 
@@ -331,9 +356,17 @@ public class RJavaTools {
 		} finally{
 			cons.setAccessible( access ); 
 		}
-		return o; 
+		return o;                                 
 	}
 	
+	static boolean[] arg_is_null(Object[] args){
+		if( args == null ) return null ;
+		boolean[] is_null = new boolean[args.length];
+		for( int i=0; i<args.length; i++) {
+			is_null[i] = ( args[i] == null ) ;
+		}
+		return is_null ;
+	}
 	
 	/**
 	 * Invoke a method of a given class
@@ -341,7 +374,8 @@ public class RJavaTools {
 	 * then invokes the method
 	 */
 	public static Object invokeMethod( Class o_clazz, Object o, String name, Object[] args, Class[] clazzes) throws Throwable {
-		Method m = getMethod( o_clazz, name, clazzes );
+		
+		Method m = getMethod( o_clazz, name, clazzes, arg_is_null(args) );
 		
 		/* enforcing accessibility (workaround for bug 128) */
 		boolean access = m.isAccessible(); 
@@ -365,11 +399,13 @@ public class RJavaTools {
 	 * 
 	 * @param o_clazz Class to look for a constructor
 	 * @param arg_clazz parameter types
+	 * @param arg_is_null indicates if each argument is null
 	 * 
 	 * @return <code>null</code> if no constructor is found, or the constructor
 	 *
 	 */
-	public static Constructor getConstructor( Class o_clazz, Class[] arg_clazz) throws SecurityException, NoSuchMethodException {
+	public static Constructor getConstructor( Class o_clazz, Class[] arg_clazz, boolean[] arg_is_null) 
+		throws SecurityException, NoSuchMethodException {
 		
 		if (o_clazz == null)
 			return null; 
@@ -402,12 +438,19 @@ public class RJavaTools {
 			int n = arg_clazz.length;
 			boolean ok = true; 
 			for (int i = 0; i < n; i++) {
-				if (arg_clazz[i] != null && !param_clazz[i].isAssignableFrom(arg_clazz[i])) {
-					ok = false; 
-					break;
+				if( arg_is_null[i] ){
+					/* then the class must not be a primitive type */
+					if( isPrimitive(arg_clazz[i]) ){ 
+						ok = false ;
+						break ;
+					}
+				} else{
+					if (arg_clazz[i] != null && !param_clazz[i].isAssignableFrom(arg_clazz[i])) {
+						ok = false; 
+						break;
+					}
 				}
 			}
-			
 			// it must be the only match so far or more specific than the current match
 			if (ok && (cons == null || isMoreSpecific(c, cons)))
 				cons = c; 
@@ -422,6 +465,13 @@ public class RJavaTools {
 	}
 	
 	
+	static boolean isPrimitive(Class cl){
+		return cl.equals(Boolean.TYPE) || cl.equals(Integer.TYPE) || 
+						cl.equals(Double.TYPE) || cl.equals(Float.TYPE) || 
+						cl.equals(Long.TYPE) || cl.equals(Short.TYPE) ||
+						cl.equals(Character.TYPE) ;
+	}
+	
 	/**
 	 * Attempts to find the best-matching method of the class <code>o_clazz</code> with the method name <code>name</code> and arguments types defined by <code>arg_clazz</code>.
 	 * The lookup is performed by finding the most specific methods that matches the supplied arguments (see also {@link #isMoreSpecific}).
@@ -429,10 +479,13 @@ public class RJavaTools {
 	 * @param o_clazz class in which to look for the method
 	 * @param name method name
 	 * @param arg_clazz an array of classes defining the types of arguments
+	 * @param arg_is_null indicates if each argument is null
 	 *
 	 * @return <code>null</code> if no matching method could be found or the best matching method.
 	 */
-	public static Method getMethod(Class o_clazz, String name, Class[] arg_clazz) throws SecurityException, NoSuchMethodException {
+	public static Method getMethod(Class o_clazz, String name, Class[] arg_clazz, boolean[] arg_is_null) 
+		throws SecurityException, NoSuchMethodException {
+		
 		if (o_clazz == null)
 			return null; 
 
@@ -464,9 +517,17 @@ public class RJavaTools {
 			int n = arg_clazz.length;
 			boolean ok = true; 
 			for (int i = 0; i < n; i++) {
-				if (arg_clazz[i] != null && !param_clazz[i].isAssignableFrom(arg_clazz[i])) {
-					ok = false; 
-					break;
+				if( arg_is_null[i] ){
+					/* then the class must not be a primitive type */
+					if( isPrimitive(arg_clazz[i]) ){ 
+						ok = false ;
+						break ;
+					}
+				} else{
+					if (arg_clazz[i] != null && !param_clazz[i].isAssignableFrom(arg_clazz[i])) {
+						ok = false; 
+						break;
+					}
 				}
 			}
 			if (ok && (met == null || isMoreSpecific(m, met))) // it must be the only match so far or more specific than the current match

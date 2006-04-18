@@ -20,12 +20,37 @@
 	if( !is.jnull(fields) ) {
 		lapply( fields, function(x ){
   		  n <- .jcall( x, "S", "getName" )
+  		  type <- .jcall( .jcall( x, "Ljava/lang/Class;", "getType"), "Ljava/lang/String;" , "getName" )
+  		  suffix <- switch( type, 
+  		  	"boolean" = "Boolean", 
+  		  	"byte" = "Byte", 
+  		  	"char" = "Char",
+  		  	"double" = "Double", 
+  		  	"float" = "Float", 
+  		  	"int" = "Int", 
+  		  	"long" = "Long", 
+  		  	"short" = "Short",
+  		  	"" )
+  		  target <- switch( type,
+  		  	"boolean" = "Z", 
+  		  	"byte" = "B", 
+  		  	"char" = "C",
+  		  	"double" = "D", 
+  		  	"float" = "F", 
+  		  	"int" = "I", 
+  		  	"long" = "L", 
+  		  	"short" = "S",
+  		  	"Ljava/lang/Object;" )
+  		  set_method <- sprintf( "set%s", suffix)
+  		  get_method <- sprintf( "get%s", suffix )
+  		  	
   		  makeActiveBinding( n, function(v){
   		    if( missing(v) ){
   		      ## get
-  		      .jsimplify( .jcall( x, "Ljava/lang/Object;", "get", object ) )
+  		      .jcall( x, target, get_method, object )
   		    } else {
-  		      .jcall( x, "V", "set", object, v )
+  		      ## set
+  		      .jcall( x, "V", set_method , object, v )
   		    }
   		  }, env )
   		} )
@@ -71,7 +96,7 @@ grabDots <- function( env, ...){
 }
 
 with.jobjRef <- function( data, expr, ...){
-  env <- new.env( parent = environment() )
+  env <- new.env( parent = parent.frame() )
   clazz <- .jcall( data, "Ljava/lang/Class;", "getClass")
   
   fields  <- .jcall( clazz, "[Ljava/lang/reflect/Field;", "getFields" )
@@ -81,7 +106,7 @@ with.jobjRef <- function( data, expr, ...){
 
   assign( "this", data, env = env )
 
-  grabDots( ..., env )
+  grabDots( env, ... )
   
   eval( substitute( expr ), env = env )
 }
@@ -113,7 +138,7 @@ with.jarrayRef <- function( data, expr, ...){
   	}
   }, env = env )
   
-  grabDots( ..., env )
+  grabDots( env, ... )
   
   eval( substitute( expr ), env = env )
 }
@@ -136,7 +161,7 @@ with.jclassName <- function( data, expr, ... ){
 	._populate_with_fields_and_methods( env, static_fields, 
 		static_methods, static_classes, data, only.static = TRUE )
 	
-	grabDots( ..., env )
+	grabDots( env, ... )
 	eval( substitute( expr ), env = env )
 }
 
