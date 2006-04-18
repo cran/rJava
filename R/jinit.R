@@ -2,16 +2,13 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 192 2006-10-17 23:41:22Z urbaneks $
+## $Id: jinit.R 243 2007-02-25 19:15:01Z urbanek $
 
 ## initialization
 
-.jinit <- function(classpath=NULL, parameters=NULL, ..., silent=FALSE) {
+.jinit <- function(classpath=NULL, parameters=getOption("java.parameters"), ..., silent=FALSE) {
   # determine path separator
-  if (.Platform$OS.type=="windows")
-    path.sep<-";"
-  else
-    path.sep<-":"
+  path.sep <- .Platform$path.sep
 
   if (!is.null(classpath)) {
     classpath<-as.character(classpath)

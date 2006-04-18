@@ -8,7 +8,7 @@
   function must be called before any rJava functions can be used.
 }
 \usage{
-.jinit(classpath = NULL, parameters = NULL, ..., silent = FALSE)
+.jinit(classpath = NULL, parameters = getOption("java.parameters"), ..., silent = FALSE)
 }
 \arguments{
   \item{classpath}{Any additional classes to include in the Java class
@@ -41,15 +41,15 @@
   At any rate, it is impossible to change any other VM parameters of a
   running VM, so when using \code{.jinit} in a package, be generous with
   limits and don't use VM parameters to unnecessarily restrict
-  resources.
+  resources. Also you should always respect the "java.parameters" option
+  and update only setting if you really must.
 }
 \seealso{
 }
 \examples{
 \dontrun{
-## set heap size limit to 512MB (see java -X) and
 ## use "myClasses.jar" as the class path
-.jinit(classpath="myClasses.jar", parameters="-Xmx512m")
+.jinit(classpath="myClasses.jar")
 }
 }
 \keyword{interface}
