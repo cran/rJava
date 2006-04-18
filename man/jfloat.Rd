@@ -1,22 +1,55 @@
 \name{jfloat}
 \alias{.jfloat}
+\alias{.jlong}
+\alias{.jbyte}
+\alias{.jchar}
+\alias{jfloat}
+\alias{jlong}
+\alias{jbyte}
+\alias{jchar}
 \title{
   Wrap numeric vector as flat Java parameter
 }
 \description{
-  \code{.jfloat} marks a numberic vector as an object that can be used as parameter to Java calls that require \code{float} parameters.
+  \code{.jfloat} marks a numberic vector as an object that can be used
+  as parameter to Java calls that require \code{float} parameters.
+  Similarly, \code{.jlong} marks a numeric vector as \code{long} parameter.
 }
 \usage{
 .jfloat(x)
+.jlong(x)
+.jbyte(x)
+.jchar(x)
 }
 \arguments{
   \item{x}{numeric vector}
 }
 \value{
-  Returns a numeric vector fo the class \code{jfloat} that can be used as parameter to Java calls that require \code{float} parameters. 
+  Returns a numeric vector of the class \code{jfloat}, \code{jlong},
+  \code{jbyte} or \code{jchar}
+  that can be used as parameter to Java calls that require
+  \code{float}, \code{long}, \code{byte} or \code{char} parameters
+  respectively.
 }
 \details{
-  R has no native \code{float} type. Numeric vectors are stored as \code{double}s, hence there is no native way to pass float numbers to Java methods. The \code{.jfloat} call marks a numeric vector as having the Java type \code{float} by wrapping it in the \code{jfloat} class. The class is still a subclass of \code{numeric}, therefore all regular R operations are unaffected by this.
+  R has no native \code{float} or \code{long} type. Numeric vectors are
+  stored as \code{double}s, hence there is no native way to pass float
+  numbers to Java methods. The \code{.jfloat} call marks a numeric
+  vector as having the Java type \code{float} by wrapping it in the
+  \code{jfloat} class. The class is still a subclass of \code{numeric},
+  therefore all regular R operations are unaffected by this.
+
+  Similarly, \code{.jlong} is used to mark a numeric vector as a
+  parameter of the \code{long} Java type. Please note that in general R
+  has no native type that will hold a \code{long} value, so conversion
+  between Java's \code{long} type and R's numeric is potentially lossy.
+
+  \code{.jbyte} is used what a scalar byte is to be passed ot Java. Note
+  that byte arrays are natively passed as RAW vectors, not as
+  \code{.jbyte} arrays.
+  
+  \code{jchar} is strictly experimental and may be based on
+  \code{character} vectors in the future.
 }
 \seealso{
   \code{\link{.jcall}}, \code{\link{jfloat-class}}

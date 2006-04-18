@@ -57,15 +57,15 @@ JNIEnv *checkEnvironment()
     if (!jvm) { // we're hoping that the JVM pointer won't change :P we fetch it just once
         res= JNI_GetCreatedJavaVMs(&jvm, 1, &l);
         if (res!=0) {
-            fprintf(stderr, "JNI_GetCreatedJavaVMs failed! (%d)\n",res); return;
+            fprintf(stderr, "JNI_GetCreatedJavaVMs failed! (%d)\n",res); return 0;
         }
         if (l<1) {
-            fprintf(stderr, "JNI_GetCreatedJavaVMs said there's no JVM running!\n"); return;
+            fprintf(stderr, "JNI_GetCreatedJavaVMs said there's no JVM running!\n"); return 0;
         }
     }
     res = (*jvm)->AttachCurrentThread(jvm, (void*) &env, 0);
     if (res!=0) {
-        fprintf(stderr, "AttachCurrentThread failed! (%d)\n",res); return;
+        fprintf(stderr, "AttachCurrentThread failed! (%d)\n",res); return 0;
     }
 #ifdef JRI_DEBUG
     if (eenv!=env)

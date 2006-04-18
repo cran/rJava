@@ -18,8 +18,10 @@ __declspec(dllimport) int UserBreak;
 extern int UserBreak;
 #endif
 #else
+/* for R_runHandlers */
 #include <R_ext/eventloop.h>
 #include <signal.h>
+#include <unistd.h>
 #endif
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniGetVersion
@@ -130,6 +132,33 @@ JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniAssign
     defineVar(sym, val, rho);
 }
 
+JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniProtect
+(JNIEnv *env, jobject this, jlong exp)
+{
+	PROTECT(L2SEXP(exp));
+}
+
+JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniUnprotect
+(JNIEnv *env, jobject this, jint count)
+{
+	UNPROTECT(count);
+}
+
+JNIEXPORT jobject JNICALL Java_org_rosuda_JRI_Rengine_rniXrefToJava
+(JNIEnv *env, jobject this, jlong exp)
+{
+	SEXP xp = L2SEXP(exp);
+	if (TYPEOF(xp) != EXTPTRSXP) return 0;
+	return (jobject) EXTPTR_PTR(xp);
+}
+
+JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniJavaToXref
+(JNIEnv *env, jobject this, jobject o)
+{
+	// this is pretty much from Rglue.c of rJava
+	return SEXP2L(R_MakeExternalPtr(o, R_NilValue, R_NilValue));
+}
+
 JNIEXPORT jstring JNICALL Java_org_rosuda_JRI_Rengine_rniGetString
   (JNIEnv *env, jobject this, jlong exp)
 {
@@ -236,6 +265,31 @@ JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniSetAttr
     
 }
 
+JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniInstallSymbol
+(JNIEnv *env, jobject this, jstring s)
+{
+    return SEXP2L(jri_installString(env, s));
+}
+
+JNIEXPORT jstring JNICALL Java_org_rosuda_JRI_Rengine_rniGetSymbolName
+(JNIEnv *env, jobject this, jlong exp)
+{
+	return jri_putSymbolName(env, L2SEXP(exp));
+}
+
+JNIEXPORT jboolean JNICALL Java_org_rosuda_JRI_Rengine_rniInherits
+(JNIEnv *env, jobject this, jlong exp, jstring s)
+{
+	jboolean res = 0;
+	const char *c;
+	c=(*env)->GetStringUTFChars(env, s, 0);
+	if (c) {
+		if (inherits(L2SEXP(exp), (char*)c)) res = 1;
+		(*env)->ReleaseStringUTFChars(env, s, c);
+	}
+	return res;
+}
+
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniCons
 (JNIEnv *env, jobject this, jlong head, jlong tail)
 {
@@ -257,6 +311,16 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniCDR
 {
     if (exp) {
         SEXP r = CDR(L2SEXP(exp));
+        return (r==R_NilValue)?0:SEXP2L(r);
+    }
+    return 0;
+}
+
+JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniTAG
+(JNIEnv *env, jobject this, jlong exp)
+{
+    if (exp) {
+        SEXP r = TAG(L2SEXP(exp));
         return (r==R_NilValue)?0:SEXP2L(r);
     }
     return 0;

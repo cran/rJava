@@ -201,6 +201,13 @@ SEXP jri_installString(JNIEnv *env, jstring s) {
     return r;
 }
 
+jstring jri_putSymbolName(JNIEnv *env, SEXP e) {
+	SEXP pn;
+    if (TYPEOF(e)!=SYMSXP) return 0;
+	pn=PRINTNAME(e);
+	return (TYPEOF(pn)!=CHARSXP)?0:(*env)->NewStringUTF(env, CHAR(pn));
+}
+
 /** calls .toString() of the object and returns the corresponding string java object */
 jstring jri_callToString(JNIEnv *env, jobject o) {
   jclass cls;

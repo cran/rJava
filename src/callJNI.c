@@ -48,18 +48,18 @@ void init_rJava(void) {
   (*env)->DeleteLocalRef(env, c);
 }
 
-jobject createObject(JNIEnv *env, char *class, char *sig, jvalue *par) {
+jobject createObject(JNIEnv *env, char *class, char *sig, jvalue *par, int silent) {
   /* va_list ap; */
   jmethodID mid;
   jclass cls;
   jobject o;
 
   cls=(*env)->FindClass(env,class);
-  if (!cls) return errJNI("createObject.FindClass %s failed",class);
+  if (!cls) return silent?0:errJNI("createObject.FindClass %s failed",class);
   mid=(*env)->GetMethodID(env, cls, "<init>", sig);
   if (!mid) {
     (*env)->DeleteLocalRef(env, cls);  
-    return errJNI("createObject.GetMethodID(\"%s\",\"%s\") failed",class,sig);
+    return silent?0:errJNI("createObject.GetMethodID(\"%s\",\"%s\") failed",class,sig);
   }
   
   /*  va_start(ap, sig); */
@@ -67,7 +67,7 @@ jobject createObject(JNIEnv *env, char *class, char *sig, jvalue *par) {
   /* va_end(ap); */
   (*env)->DeleteLocalRef(env, cls);  
   
-  return o?o:errJNI("NewObject(\"%s\",\"%s\",...) failed",class,sig);
+  return (o||silent)?o:errJNI("NewObject(\"%s\",\"%s\",...) failed",class,sig);
 }
 
 void printObject(JNIEnv *env, jobject o) {
@@ -125,7 +125,7 @@ jintArray newIntArray(JNIEnv *env, int *cont, int len) {
   return da;
 }
 
-jintArray newByteArray(JNIEnv *env, void *cont, int len) {
+jbyteArray newByteArray(JNIEnv *env, void *cont, int len) {
   jbyteArray da=(*env)->NewByteArray(env,len);
   jbyte *dae;
 
@@ -136,6 +136,25 @@ jintArray newByteArray(JNIEnv *env, void *cont, int len) {
     return errJNI("newByteArray.GetByteArrayElements failed");
   }
   memcpy(dae,cont,len);
+  (*env)->ReleaseByteArrayElements(env, da, dae, 0);
+  return da;
+}
+
+jbyteArray newByteArrayI(JNIEnv *env, int *cont, int len) {
+  jbyteArray da=(*env)->NewByteArray(env,len);
+  jbyte* dae;
+  int i=0;
+
+  if (!da) return errJNI("newByteArray.new(%d) failed",len);
+  dae=(*env)->GetByteArrayElements(env, da, 0);
+  if (!dae) {
+    (*env)->DeleteLocalRef(env,da);
+    return errJNI("newByteArray.GetByteArrayElements failed");
+  }
+  while (i<len) {
+    dae[i]=(jbyte)cont[i];
+    i++;
+  }
   (*env)->ReleaseByteArrayElements(env, da, dae, 0);
   return da;
 }

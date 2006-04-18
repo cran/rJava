@@ -10,7 +10,7 @@ public class Mutex {
     /** thread that locked this mutex (used for simple deadlock-detection) */
     private Thread lockedBy=null;
 
-    /** locks the mutex. If the mutex is already locked, waits until the mutex becomes free. Make sure the same thread doesn't issue two locks, because that will cause a deadlock. Use {@link safeLock()} instead if you wish to detect such deadlocks. */
+    /** locks the mutex. If the mutex is already locked, waits until the mutex becomes free. Make sure the same thread doesn't issue two locks, because that will cause a deadlock. Use {@link #safeLock()} instead if you wish to detect such deadlocks. */
     public synchronized void lock()
     {
         while (locked) {
@@ -31,7 +31,7 @@ public class Mutex {
     }
 
     /** locks the mutex. If the mutex is already locked, waits until the mutex becomes free. Make sure the same thread doesn't issue two locks, because that will cause a deadlock.
-        @param to timeout in milliseconds, see {@link wait()}.
+        @param to timeout in milliseconds, see {@link #wait()}.
         @return <code>true</code> if the lock was successful, <code>false</code> if not
         */
     public synchronized boolean lockWithTimeout(long to)
@@ -59,7 +59,7 @@ public class Mutex {
     }
 
     /** attempts to lock the mutex and returns information about its success.
-        @return 0 if the mutex was locked sucessfully<br>1 if the mutex is already locked by another thread<br>-1 is the mutex is already locked by the same thread (hence a call to {@link lock()} would cause a deadlock). */
+        @return 0 if the mutex was locked sucessfully<br>1 if the mutex is already locked by another thread<br>-1 is the mutex is already locked by the same thread (hence a call to {@link #lock()} would cause a deadlock). */
     public synchronized int tryLock()
     {
         if (verbose) System.out.println("INFO: "+toString()+" tryLock by "+Thread.currentThread());
@@ -70,7 +70,7 @@ public class Mutex {
         return 0;
     }
 
-    /** Locks the mutex. It works like {@link lock()} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link lock()}, because lock can possibly cause a deadlock which won't be resolved.
+    /** Locks the mutex. It works like {@link #lock()} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link #lock()}, because lock can possibly cause a deadlock which won't be resolved.
         @return <code>true</code> is the mutex was successfully locked, <code>false</code> if deadlock was detected (i.e. the same thread has already the lock). */
     public synchronized boolean safeLock()
     {
@@ -82,7 +82,7 @@ public class Mutex {
         return true;
     }
 
-    /** Locks the mutex. It works like {@link lockWithTimeout(long)} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link lockWithTimeout()}, because lock can possibly cause a deadlock which won't be resolved.
+    /** Locks the mutex. It works like {@link #lockWithTimeout(long)} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link #lockWithTimeout()}, because lock can possibly cause a deadlock which won't be resolved.
         @return <code>true</code> is the mutex was successfully locked, <code>false</code> if deadlock was detected or timeout elapsed. */
     public synchronized boolean safeLockWithTimeout(long to)
     {

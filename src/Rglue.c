@@ -6,6 +6,11 @@
 
 #include <stdarg.h>
 
+/* pre-2.4 have no S4SXP but used VECSXP instead */
+#ifndef S4SXP
+#define S4SXP VECSXP
+#endif
+
 /* debugging output (enable with -DRJ_DEBUG) */
 #ifdef RJ_DEBUG
 void rjprintf(char *fmt, ...) {
@@ -243,7 +248,9 @@ SEXP RinitJVM(SEXP par)
 }
 
 /** converts parameters in SEXP list to jpar and sig.
-    strcat is used on sig, hence sig must be a valid string already */
+    strcat is used on sig, hence sig must be a valid string already
+    since 0.4-4 we ignore named arguments in par
+*/
 SEXP Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpar, int maxsig) {
   SEXP p=par;
   SEXP e;
@@ -251,6 +258,9 @@ SEXP Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpar, int
   int i=0;
 
   while (p && TYPEOF(p)==LISTSXP && (e=CAR(p))) {
+    /* skip all named arguments */
+    if (TAG(p) && TAG(p)!=R_NilValue) { p=CDR(p); continue; };
+    
     rjprintf("Rpar2jvalue: par %d type %d\n",i,TYPEOF(e));
     if (TYPEOF(e)==STRSXP) {
       rjprintf(" string vector of length %d\n",LENGTH(e));
@@ -273,24 +283,50 @@ SEXP Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpar, int
     } else if (TYPEOF(e)==INTSXP) {
       rjprintf(" integer vector of length %d\n",LENGTH(e));
       if (LENGTH(e)==1) {
-	strcat(sig,"I");
-	jpar[jvpos++].i=(jint)(INTEGER(e)[0]);
-	rjprintf("  single int orig=%d, jarg=%d [jvpos=%d]\n",
-	       (INTEGER(e)[0]),
-	       jpar[jvpos-1],
-	       jvpos);
+	if (inherits(e, "jbyte")) {
+	  rjprintf("  (actually a single byte 0x%x)\n", INTEGER(e)[0]);
+	  jpar[jvpos++].b=(jbyte)(INTEGER(e)[0]);
+	  strcat(sig,"B");
+	} else {
+	  strcat(sig,"I");
+	  jpar[jvpos++].i=(jint)(INTEGER(e)[0]);
+	  rjprintf("  single int orig=%d, jarg=%d [jvpos=%d]\n",
+		   (INTEGER(e)[0]),
+		   jpar[jvpos-1],
+		   jvpos);
+	}
       } else {
 	strcat(sig,"[I");
 	jpar[jvpos++].l=newIntArray(env, INTEGER(e),LENGTH(e));
       }
     } else if (TYPEOF(e)==REALSXP) {
-      rjprintf(" real vector of length %d\n",LENGTH(e));
-      if (LENGTH(e)==1) {
-	strcat(sig,"D");
-	jpar[jvpos++].d=(jdouble)(REAL(e)[0]);
+      if (inherits(e, "jfloat")) {
+	rjprintf(" jfloat vector of length %d\n", LENGTH(e));
+	if (LENGTH(e)==1) {
+	  strcat(sig,"F");
+	  jpar[jvpos++].f=(jfloat)(REAL(e)[0]);
+	} else {
+	  strcat(sig,"[F");
+	  jpar[jvpos++].l=newFloatArrayD(env, REAL(e),LENGTH(e));
+	}
+      } else if (inherits(e, "jlong")) {
+	rjprintf(" jlong vector of length %d\n", LENGTH(e));
+	if (LENGTH(e)==1) {
+	  strcat(sig,"J");
+	  jpar[jvpos++].j=(jlong)(REAL(e)[0]);
+	} else {
+	  strcat(sig,"[J");
+	  jpar[jvpos++].l=newLongArrayD(env, REAL(e),LENGTH(e));
+	}
       } else {
-	strcat(sig,"[D");
-	jpar[jvpos++].l=newDoubleArray(env, REAL(e),LENGTH(e));
+	rjprintf(" real vector of length %d\n",LENGTH(e));
+	if (LENGTH(e)==1) {
+	  strcat(sig,"D");
+	  jpar[jvpos++].d=(jdouble)(REAL(e)[0]);
+	} else {
+	  strcat(sig,"[D");
+	  jpar[jvpos++].l=newDoubleArray(env, REAL(e),LENGTH(e));
+	}
       }
     } else if (TYPEOF(e)==LGLSXP) {
       rjprintf(" logical vector of length %d\n",LENGTH(e));
@@ -301,7 +337,7 @@ SEXP Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpar, int
 	strcat(sig,"[Z");
 	jpar[jvpos++].l=newBooleanArrayI(env, LOGICAL(e),LENGTH(e));
       }
-    } else if (TYPEOF(e)==VECSXP) {
+    } else if (TYPEOF(e)==VECSXP || TYPEOF(e)==S4SXP) {
       rjprintf(" general vector of length %d\n", LENGTH(e));
       if (inherits(e,"jobjRef")||inherits(e,"jarrayRef")) {
 	jobject o=(jobject)0;
@@ -309,7 +345,7 @@ SEXP Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpar, int
 	SEXP n=getAttrib(e, R_NamesSymbol);
 	if (TYPEOF(n)!=STRSXP) n=0;
 	rjprintf(" which is in fact a Java object reference\n");
-	if (LENGTH(e)>1) { /* old objects were lists */
+	if (TYPEOF(e)==VECSXP && LENGTH(e)>1) { /* old objects were lists */
 	  error("Old, unsupported S3 Java object encountered.");
 	} else { /* new objects are S4 objects */
 	  SEXP sref, sclass;
@@ -743,6 +779,14 @@ SEXP RcallMethod(SEXP par) {
     profReport("Method \"%s\" returned:",mnam);
     return e;
   }
+  if (*retsig=='B') {
+    int r=(int) (*env)->CallByteMethodA(env,o,mid,jpar);
+    PROTECT(e=allocVector(INTSXP, 1));
+    INTEGER(e)[0]=r;
+    UNPROTECT(1);
+    profReport("Method \"%s\" returned:",mnam);
+    return e;
+  }
   if (*retsig=='C') {
 	  int r=(int) (*env)->CallCharMethodA(env,o,mid,jpar);
 	  PROTECT(e=allocVector(INTSXP, 1));
@@ -784,14 +828,13 @@ SEXP RcallMethod(SEXP par) {
 	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
-    jobject gr;
     jobject r=(*env)->CallObjectMethodA(env,o,mid,jpar);
     if (!r) {
       profReport("Method \"%s\" returned NULL:",mnam);
       return R_NilValue;
     }
     e=j2SEXP(env, r, 1);
-    profReport("Method \"%s\" returned [g.ref=%x]:",mnam, gr);
+    profReport("Method \"%s\" returned",mnam);
     return e;
   }
   profReport("Method \"%s\" has an unknown signature, not called:",mnam);
@@ -886,6 +929,14 @@ SEXP RcallStaticMethod(SEXP par) {
     profReport("Method \"%s\" returned:",mnam);
     return e;
   }
+  if (*retsig=='B') {
+    int r=(int) (*env)->CallStaticByteMethodA(env,cls,mid,jpar);
+    PROTECT(e=allocVector(INTSXP, 1));
+    INTEGER(e)[0]=r;
+    UNPROTECT(1);
+    profReport("Method \"%s\" returned:",mnam);
+    return e;
+  }
   if (*retsig=='J') {
     jlong r=(*env)->CallStaticLongMethodA(env,cls,mid,jpar);
     PROTECT(e=allocVector(REALSXP, 1));
@@ -927,7 +978,6 @@ SEXP RcallStaticMethod(SEXP par) {
 	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
-    jobject gr;
     jobject r=(*env)->CallStaticObjectMethodA(env,cls,mid,jpar);
     profReport("Method \"%s\" returned:",mnam);
     return j2SEXP(env, r, 1);
@@ -991,6 +1041,13 @@ SEXP RgetField(SEXP par) {
 	  UNPROTECT(1);
 	  return e;
   }
+  if (*retsig=='B') {
+    int r=(int) (*env)->GetByteField(env,o,mid);
+    PROTECT(e=allocVector(INTSXP, 1));
+    INTEGER(e)[0]=r;
+    UNPROTECT(1);
+    return e;
+  }
   if (*retsig=='J') {
     jlong r=(*env)->GetLongField(env,o,mid); /* FIXME: jlong=int ?? */
     PROTECT(e=allocVector(REALSXP, 1));
@@ -1020,7 +1077,6 @@ SEXP RgetField(SEXP par) {
 	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
-    jobject gr;
     jobject r=(*env)->GetObjectField(env,o,mid);
     return j2SEXP(env, r, 1);
   }
@@ -1032,10 +1088,11 @@ SEXP RgetField(SEXP par) {
 SEXP RcreateObject(SEXP par) {
   SEXP p=par;
   SEXP e;
+  int silent=0;
   char *class;
   char sig[256];
   jvalue jpar[32];
-  jobject o,go;
+  jobject o;
   JNIEnv *env=getJNIEnv();
 
   if (TYPEOF(p)!=LISTSXP) {
@@ -1054,7 +1111,17 @@ SEXP RcreateObject(SEXP par) {
   Rpar2jvalue(env,p,jpar,sig,32,256);
   strcat(sig,")V");
   rjprintf(" constructor signature is %s\n",sig);
-  o=createObject(env,class,sig,jpar);
+
+  /* look for named arguments */
+  while (TYPEOF(p)==LISTSXP) {
+    if (TAG(p) && isSymbol(TAG(p))) {
+      if (TAG(p)==install("silent") && isLogical(CAR(p)) && LENGTH(CAR(p))==1)
+	silent=LOGICAL(CAR(p))[0];
+    }
+    p=CDR(p);
+  }
+
+  o=createObject(env,class,sig,jpar,silent);
   if (!o) return R_NilValue;
 
 #ifdef RJ_DEBUG
@@ -1091,7 +1158,11 @@ SEXP RcreateArray(SEXP ar, SEXP cl) {
   switch(TYPEOF(ar)) {
   case INTSXP:
     {
-      if (inherits(ar, "jchar")) {
+      if (inherits(ar, "jbyte")) {
+	jbyteArray a = newByteArrayI(env, INTEGER(ar), LENGTH(ar));
+	if (!a) return R_NilValue;
+	return new_jarrayRef(a, "[B");
+      } else if (inherits(ar, "jchar")) {
 	jcharArray a = newCharArrayI(env, INTEGER(ar), LENGTH(ar));
 	if (!a) return R_NilValue;
 	return new_jarrayRef(a, "[C");
@@ -1220,4 +1291,20 @@ SEXP RfreeObject(SEXP par) {
 /** create a NULL external reference */
 SEXP RgetNullReference() {
   return R_MakeExternalPtr(0, R_NilValue, R_NilValue);
+}
+
+/** TRUE if cl1 x; cl2 y = (cl2) x ... is valid */
+SEXP RisAssignableFrom(SEXP cl1, SEXP cl2) {
+  SEXP r;
+  JNIEnv *env=getJNIEnv();
+
+  if (TYPEOF(cl1)!=EXTPTRSXP || TYPEOF(cl2)!=EXTPTRSXP)
+    error("invalid type");
+  if (!env)
+    error("VM not initialized");
+  r=allocVector(LGLSXP,1);
+  LOGICAL(r)[0]=((*env)->IsAssignableFrom(env,
+					  (jclass)EXTPTR_PTR(cl1),
+					  (jclass)EXTPTR_PTR(cl2)));
+  return r;
 }

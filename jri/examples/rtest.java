@@ -1,9 +1,13 @@
 import java.io.*;
+import java.awt.Frame;
+import java.awt.FileDialog;
 
-import java.awt.*;
+import java.util.Enumeration;
 
 import org.rosuda.JRI.Rengine;
 import org.rosuda.JRI.REXP;
+import org.rosuda.JRI.RList;
+import org.rosuda.JRI.RVector;
 import org.rosuda.JRI.RMainLoopCallbacks;
 
 class TextConsole implements RMainLoopCallbacks
@@ -54,22 +58,60 @@ class TextConsole implements RMainLoopCallbacks
 public class rtest {
     public static void main(String[] args) {
         System.out.println("Creating Rengine (with arguments)");
-	// 1) we pass the arguments from the command line
-	// 2) we won't use the main loop at first, we'll start it later
-	// 3) the callbacks are implemented by the TextConsole class above
-	Rengine re=new Rengine(args, false, null);
+		// 1) we pass the arguments from the command line
+		// 2) we won't use the main loop at first, we'll start it later
+		//    (that's the "false" as second argument)
+		// 3) the callbacks are implemented by the TextConsole class above
+		Rengine re=new Rengine(args, false, new TextConsole());
         System.out.println("Rengine created, waiting for R");
-	// the engine creates R is a new thread, so we should wait until it's ready
+		// the engine creates R is a new thread, so we should wait until it's ready
         if (!re.waitForR()) {
             System.out.println("Cannot load R");
             return;
         }
 
-		re.eval("data(iris)");
-		System.out.println(re.eval("objects()"));
-		System.out.println(re.eval("sqrt(36)"));
-
-		System.exit(0);
+		/* High-level API - do not use RNI methods unless there is no other way
+			to accomplish what you want */
+		try {
+			REXP x;
+			re.eval("data(iris)",false);
+			System.out.println(x=re.eval("iris"));
+			// generic vectors are RVector to accomodate names
+			RVector v = x.asVector();
+			if (v.getNames()!=null) {
+				System.out.println("has names:");
+				for (Enumeration e = v.getNames().elements() ; e.hasMoreElements() ;) {
+					System.out.println(e.nextElement());
+				}
+			}
+			// for compatibility with Rserve we allow casting of vectors to lists
+			RList vl = x.asList();
+			String[] k = vl.keys();
+			if (k!=null) {
+				System.out.println("and once again from the list:");
+				int i=0; while (i<k.length) System.out.println(k[i++]);
+			}			
+			
+			// now for a real dotted-pair list:
+			System.out.println(x=re.eval("pairlist(a=1,b='foo',c=1:5)"));
+			RList l = x.asList();
+			if (l!=null) {
+				int i=0;
+				String [] a = l.keys();
+				System.out.println("Keys:");
+				while (i<a.length) System.out.println(a[i++]);
+				System.out.println("Contents:");
+				i=0;
+				while (i<a.length) System.out.println(l.at(i++));
+			}
+			System.out.println(re.eval("sqrt(36)"));
+		} catch (Exception e) {
+			System.out.println("EX:"+e);
+			e.printStackTrace();
+		}
+		
+		// Part 2 - low-level API - for illustration purposes only!
+		//System.exit(0);
 		
         // simple assignment like a<-"hello" (env=0 means use R_GlobalEnv)
         long xp1 = re.rniPutString("hello");
