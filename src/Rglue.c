@@ -1,3 +1,4 @@
+#define USE_RINTERNALS 1
 #include "rJava.h"
 #include <R.h>
 #include <Rdefines.h>
@@ -135,6 +136,38 @@ SEXP j2SEXP(JNIEnv *env, jobject o, int releaseLocal) {
   }
 }
 
+HIDE void deserializeSEXP(SEXP o) {
+  _dbg(rjprintf("attempt to deserialize %p (clCL=%p, oCL=%p)\n", o, clClassLoader, oClassLoader));
+  SEXP s = EXTPTR_PROT(o);
+  if (TYPEOF(s) == RAWSXP && EXTPTR_PTR(o) == NULL) {
+    JNIEnv *env = getJNIEnv();
+    if (env && clClassLoader && oClassLoader) {
+      jbyteArray ser = newByteArray(env, RAW(s), LENGTH(s));
+      if (ser) {
+	jmethodID mid = (*env)->GetMethodID(env, clClassLoader, "toObject", "([B)Ljava/lang/Object;");
+	if (mid) {
+	  jobject res = (*env)->CallObjectMethod(env, oClassLoader, mid, ser);
+	  if (res) {
+	    jobject go = makeGlobal(env, res);
+	    _mp(MEM_PROF_OUT("R %08x RNEW %08x\n", (int) go, (int) res))
+	    if (go) {
+	      _dbg(rjprintf(" - succeeded: %p\n", go));
+	      /* set the deserialized object */
+	      EXTPTR_PTR(o) = (SEXP) go;
+	      /* Note: currently we don't remove the serialized content, because it was created explicitly using .jcache to allow repeated saving. Once this is handled by a hook, we shall remove it. However, to assure compatibility TAG is always NULL for now, so we do clear the cache if TAG is non-null for future use. */
+	      if (EXTPTR_TAG(o) != R_NilValue) {
+		/* remove the serialized raw vector */
+		SETCDR(o, R_NilValue); /* Note: this is abuse of the API since it uses the fact that PROT is stored in CDR */
+	      }
+	    }
+	  }
+	}
+	releaseObject(env, ser);
+      }
+    }    
+  }
+}
+
 #define addtmpo(T, X) { jobject _o = X; if (_o) { _dbg(rjprintf(" parameter to release later: %lx\n", (unsigned long) _o)); *T=_o; T++;} }
 #define fintmpo(T) { *T = 0; }
 
@@ -180,6 +213,10 @@ static int Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, char *sig, int maxpa
 	jpar[jvpos++].l=sa;
 	strcat(sig,"[Ljava/lang/String;");
       }
+    } else if (TYPEOF(e)==RAWSXP) {
+      _dbg(rjprintf(" raw vector of length %d\n", LENGTH(e)));
+      strcat(sig,"[B");
+      addtmpo(tmpo, jpar[jvpos++].l=newByteArray(env, RAW(e), LENGTH(e)));
     } else if (TYPEOF(e)==INTSXP) {
       _dbg(rjprintf(" integer vector of length %d\n",LENGTH(e)));
       if (LENGTH(e)==1) {
@@ -853,6 +890,20 @@ REP void RclearException() {
 BEGIN_RJAVA_CALL
   (*env)->ExceptionClear(env);  
 END_RJAVA_CALL
+}
+
+REPC SEXP javaObjectCache(SEXP o, SEXP what) {
+  if (TYPEOF(o) != EXTPTRSXP)
+    error("invalid object");
+  if (TYPEOF(what) == RAWSXP || what == R_NilValue) {
+    /* set PROT to the serialization of NULL */
+    SETCDR(o, what);
+    return what;
+  }
+  if (TYPEOF(what) == LGLSXP)
+    return EXTPTR_PROT(o);
+  error("invalid argument");
+  return R_NilValue;
 }
 
 REPC SEXP RthrowException(SEXP ex) {
