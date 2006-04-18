@@ -4,16 +4,17 @@ package org.rosuda.JRI;
 public interface RMainLoopCallbacks {
     /** called when R prints output to the console
 	@param re calling engine
-	@param text text to display in the console */
+	@param text text to display in the console
+    */
     public void   rWriteConsole (Rengine re, String text);
     /** called when R enters or exist a longer evaluation. It is usually a good idea to signal this state to the user, e.g. by changing the cursor to a "hourglass" and back.
 	@param re calling engine
-	@param which identifies whether R enters or exist the busy state */
+	@param which identifies whether R enters (1) or exist (0) the busy state */
     public void   rBusy         (Rengine re, int which);
     /** called when R waits for user input. During the duration of this callback it is safe to re-enter R, and very often it is also the only time. The implementation is free to block on this call until the user hits Enter, but it is a good idea to call @{link #rniIdle} occasionally to allow other event handlers (e.g graphics device UIs) to run. Implementations should NEVER return immediately even if there is no input - such behavior will result in a fast cycling event loop which makes the use of R pretty much impossible.
 	@param re calling engine
 	@param propmt prompt to be displayed at the console prior to user's input
-	@param addToHistory flags telling the handler whether the input should be considered for adding to history or not
+	@param addToHistory flag telling the handler whether the input should be considered for adding to history (!=0) or not (0)
 	@return user's input to be passed to R for evaluation */
     public String rReadConsole  (Rengine re, String prompt, int addToHistory);
     /** called when R want to show a warning/error message (not to be confused with messages displayed in the console output)

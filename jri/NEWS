@@ -1,6 +1,14 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
+0.4-0	(under development)
+    o	allow JRI to hook into a running R process (and thusly provide
+	rJava with callbacks)
+
+    o	added: inMainRThread(), isStandAlone()
+
+    o	include configure in SVN and don't rebuild it on mkdist
+
 0.3-7	2006-01-14
     o	make sure rniJavaToXref creates a global reference
 

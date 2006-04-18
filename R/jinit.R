@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 243 2007-02-25 19:15:01Z urbanek $
+## $Id: jinit.R 253 2007-03-05 18:45:19Z urbanek $
 
 ## initialization
 
@@ -71,7 +71,7 @@
       if (!silent) warning("Another VM is running already and the VM did not allow me to append paths to the class path.")
       assign(".jinit.merge.error", cpr, .env)
     }
-    if (length(parameters)>0 && !silent)
+    if (length(parameters)>0 && any(parameters!=getOption("java.parameters")) && !silent)
       warning("Cannot set VM parameters, because VM is running already.")
   }
   for (x in .delayed.variables) lockBinding(x, .env)

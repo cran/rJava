@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 233 2007-02-21 22:34:14Z urbanek $
+## $Id: call.R 253 2007-03-05 18:45:19Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -208,7 +208,7 @@ is.jnull <- function(x) {
     stop("invalid class name")
   cl<-gsub("/",".",cl)
   a <- NULL
-  try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,check=FALSE))
+  try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,TRUE,.jcall("java/lang/ClassLoader", "Ljava/lang/ClassLoader;", "getSystemClassLoader"), check=FALSE))
   .jcheck(silent=TRUE)
   if (!silent && is.jnull(a)) stop("class not found")
   a

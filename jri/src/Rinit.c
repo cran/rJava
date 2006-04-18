@@ -136,6 +136,13 @@ int initR(int argc, char **argv) {
     return 0;
 }
 
+void initRinside() {
+#if (R_VERSION >= R_Version(2,3,0))
+    /* disable stack checking, because threads will thow it off */
+    R_CStackLimit = (uintptr_t) -1;
+#endif
+}
+
 #else
 
 /*-------------------------------------------------------------------*
@@ -324,4 +331,13 @@ int initR(int argc, char **argv)
 
     return 0;
 }
+
+void initRinside() {
+#if (R_VERSION >= R_Version(2,3,0))
+    /* disable stack checking, because threads will thow it off */
+    R_CStackLimit = (uintptr_t) -1;
 #endif
+}
+
+#endif
+
