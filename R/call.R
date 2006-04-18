@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 301 2007-06-21 10:12:11Z urbanek $
+## $Id: call.R 360 2009-08-20 01:05:33Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -40,7 +40,7 @@
       sig <- cl
     } else sig <- obj@jsig
     jobj<-obj@jobj
-  }
+  } else if (is(obj, "jobjRef")) jobj<-obj@jobj
   if (sig=="[I")
     return(.Call("RgetIntArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[J")

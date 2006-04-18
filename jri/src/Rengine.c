@@ -277,7 +277,7 @@ JNIEXPORT jlongArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetVector
 JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniExpType
   (JNIEnv *env, jobject this, jlong exp)
 {
-    return (exp<0)?0:TYPEOF(L2SEXP(exp));
+    return exp ? TYPEOF(L2SEXP(exp)) : 0;
 }
 
 JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniIdle

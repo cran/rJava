@@ -82,7 +82,7 @@ public class Mutex {
         return true;
     }
 
-    /** Locks the mutex. It works like {@link #lockWithTimeout(long)} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link #lockWithTimeout()}, because lock can possibly cause a deadlock which won't be resolved.
+    /** Locks the mutex. It works like {@link #lockWithTimeout(long)} except that it returns immediately if the same thread already owns the lock. It is safer to use this function rather than {@link #lockWithTimeout(long)}, because lock can possibly cause a deadlock which won't be resolved.
         @return <code>true</code> is the mutex was successfully locked, <code>false</code> if deadlock was detected or timeout elapsed. */
     public synchronized boolean safeLockWithTimeout(long to)
     {

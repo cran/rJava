@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 319 2008-09-20 20:21:06Z urbanek $
+## $Id: jinit.R 354 2009-06-18 17:31:53Z urbanek $
 
 .check.JVM <- function() 
     .Call("RJava_checkJVM", PACKAGE="rJava")
@@ -83,6 +83,9 @@
   ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Boolean")
   f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
   assign(".jclass.boolean", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
+  ic <- .jcall("java/lang/Class","Ljava/lang/Class;","forName","java.lang.Void")
+  f<-.jcall(ic,"Ljava/lang/reflect/Field;","getField", "TYPE")
+  assign(".jclass.void", .jcast(.jcall(f,"Ljava/lang/Object;","get",.jcast(ic,"java/lang/Object")),"java/lang/Class"), .env)
 
   lib <- "libs"
   if (nchar(.Platform$r_arch)) lib <- file.path("libs", .Platform$r_arch)

@@ -1,5 +1,5 @@
 Package: rJava
-Version: 0.6-3
+Version: 0.7-0
 Title: Low-level R to Java interface
 Author: Simon Urbanek <simon.urbanek@r-project.org>
 Maintainer: Simon Urbanek <simon.urbanek@r-project.org>
@@ -10,4 +10,4 @@ Description: Low-level interface to Java VM very much like .C/.Call and
 License: GPL-2
 URL: http://www.rforge.net/rJava/
 Repository: CRAN
-Date/Publication: 2009-06-16 13:11:38
+Date/Publication: 2009-08-23 07:06:47

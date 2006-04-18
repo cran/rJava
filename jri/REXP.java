@@ -351,7 +351,7 @@ public class REXP {
 		xpression. Some more complex structures such as classes are built that
 		way.
 		@return attribute xpression or <code>null</code> if there is none associated
-		@since JRI 0.3, replaces <code>getAttribute()</code> but should be avoided if possible - use {@link #getAttribute(name)} instead.
+		@since JRI 0.3, replaces <code>getAttribute()</code> but should be avoided if possible - use {@link #getAttribute(String)} instead.
 		*/
 	public REXP getAttributes() {
 		return attr;
