@@ -179,6 +179,12 @@ JNIEXPORT jintArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetIntArray
       return jri_putIntArray(env, L2SEXP(exp));
 }
 
+JNIEXPORT jintArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetBoolArrayI
+  (JNIEnv *env, jobject this, jlong exp)
+{
+      return jri_putBoolArrayI(env, L2SEXP(exp));
+}
+
 JNIEXPORT jintArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetDoubleArray
   (JNIEnv *env, jobject this, jlong exp)
 {
@@ -227,6 +233,18 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniPutIntArray
 (JNIEnv *env, jobject this, jintArray a)
 {
     return SEXP2L(jri_getIntArray(env, a));
+}
+
+JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniPutBoolArrayI
+(JNIEnv *env, jobject this, jintArray a)
+{
+    return SEXP2L(jri_getBoolArrayI(env, a));
+}
+
+JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniPutBoolArray
+(JNIEnv *env, jobject this, jbooleanArray a)
+{
+    return SEXP2L(jri_getBoolArray(env, a));
 }
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniPutDoubleArray
