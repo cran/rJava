@@ -5,7 +5,7 @@
 CFLAGS+=-g
 
 CC=@CC@
-CFLAGS+=-Iinclude @CFLAGS@
+CFLAGS+=-Iinclude @DEFFLAGS@ @CFLAGS@
 LDFLAGS+=@LDFLAGS@
 
 CC=@CC@

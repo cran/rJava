@@ -230,6 +230,34 @@ case "${host_os}" in
     ;;
 esac
 
+origCFLAGS=$CFLAGS
+CFLAGS="${CFLAGS} ${R_CFLAGS} -I${R_INCLUDE_DIR}"
+
+AC_MSG_CHECKING([whether Rinterface.h exports R_CStackXXX variables])
+AC_COMPILE_IFELSE([
+#define CSTACK_DEFNS
+#include <R.h>
+#include <Rinterface.h>
+int main(void) {
+    return R_CStackLimit?0:1;
+}
+        ],[AC_MSG_RESULT(yes)
+           DEFFLAGS="${DEFFLAGS} -DRIF_HAS_CSTACK"],
+        [AC_MSG_RESULT(no)])
+
+AC_MSG_CHECKING([whether Rinterface.h exports R_SignalHandlers])
+AC_COMPILE_IFELSE([
+#include <R.h>
+#include <Rinterface.h>
+int main(void) {
+    return R_SignalHandlers;
+}
+        ],[AC_MSG_RESULT(yes)
+           DEFFLAGS="${DEFFLAGS} -DRIF_HAS_RSIGHAND"],
+        [AC_MSG_RESULT(no)])
+
+CFLAGS=${origCFLAGS}
+
 AC_SUBST(JAVA_HOME)
 AC_SUBST(JAVA_PROG)
 AC_SUBST(JAVA_LD_PATH)
@@ -247,6 +275,7 @@ AC_SUBST(LDFLAGS)
 AC_SUBST(RINC)
 AC_SUBST(RLD)
 AC_SUBST(CC)
+AC_SUBST(DEFFLAGS)
 
 AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([Makefile])

@@ -274,7 +274,7 @@ PACKAGE_STRING='JRI 0.1'
 PACKAGE_BUGREPORT='urbanek@research.att.com'
 
 ac_unique_file="src/jri.h"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os R_HOME R_SHARE_DIR R_DOC_DIR R_INCLUDE_DIR CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP JAVA_PROG JAVAC JAVAH JAR JAVA_HOME JAVA_LD_PATH JAVA_LIBS JAVA_INC JNILD JNISO JNIPREFIX CPICF RINC RLD LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os R_HOME R_SHARE_DIR R_DOC_DIR R_INCLUDE_DIR CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP JAVA_PROG JAVAC JAVAH JAR JAVA_HOME JAVA_LD_PATH JAVA_LIBS JAVA_INC JNILD JNISO JNIPREFIX CPICF RINC RLD DEFFLAGS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -3326,6 +3326,103 @@ case "${host_os}" in
     ;;
 esac
 
+origCFLAGS=$CFLAGS
+CFLAGS="${CFLAGS} ${R_CFLAGS} -I${R_INCLUDE_DIR}"
+
+echo "$as_me:$LINENO: checking whether Rinterface.h exports R_CStackXXX variables" >&5
+echo $ECHO_N "checking whether Rinterface.h exports R_CStackXXX variables... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+
+#define CSTACK_DEFNS
+#include <R.h>
+#include <Rinterface.h>
+int main(void) {
+    return R_CStackLimit?0:1;
+}
+
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+           DEFFLAGS="${DEFFLAGS} -DRIF_HAS_CSTACK"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
+echo "$as_me:$LINENO: checking whether Rinterface.h exports R_SignalHandlers" >&5
+echo $ECHO_N "checking whether Rinterface.h exports R_SignalHandlers... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+
+#include <R.h>
+#include <Rinterface.h>
+int main(void) {
+    return R_SignalHandlers;
+}
+
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+           DEFFLAGS="${DEFFLAGS} -DRIF_HAS_RSIGHAND"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
+CFLAGS=${origCFLAGS}
+
+
 
 
 
@@ -3998,6 +4095,7 @@ s,@JNIPREFIX@,$JNIPREFIX,;t t
 s,@CPICF@,$CPICF,;t t
 s,@RINC@,$RINC,;t t
 s,@RLD@,$RLD,;t t
+s,@DEFFLAGS@,$DEFFLAGS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
