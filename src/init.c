@@ -7,6 +7,7 @@
 JavaVM *jvm;
 
 /* cached, global objects */
+
 jclass javaStringClass;
 jclass javaObjectClass;
 jclass javaClassClass;
@@ -15,8 +16,21 @@ jclass javaFieldClass;
 /* cached, global method IDs */
 jmethodID mid_forName;
 jmethodID mid_getName;
+jmethodID mid_getSimpleName;
+jmethodID mid_getSuperclass;
 jmethodID mid_getType;
 jmethodID mid_getField;
+
+/* internal classes and methods */
+jclass rj_RJavaTools_Class = (jclass)0;
+jmethodID mid_rj_getSimpleClassNames = (jmethodID)0 ;
+jmethodID mid_RJavaTools_getFieldTypeName = (jmethodID)0 ;
+
+
+jclass rj_RJavaImport_Class = (jclass)0;
+jmethodID mid_RJavaImport_getKnownClasses = (jmethodID)0 ;
+jmethodID mid_RJavaImport_lookup = (jmethodID)0 ;
+jmethodID mid_RJavaImport_exists = (jmethodID)0 ;
 
 int rJava_initialized = 0;
 
@@ -141,8 +155,6 @@ pthread_mutex_t initMutex = PTHREAD_MUTEX_INITIALIZER;
 int thInitResult = 0;
 int initAWT = 0;
 
-static void init_rJava(void);
-
 static void *initJVMthread(void *classpath)
 {
   int ws;
@@ -177,9 +189,9 @@ static void *initJVMthread(void *classpath)
 /* initialize internal structures/variables of rJava.
    The JVM initialization was performed before (but may have failed)
 */
-static void init_rJava(void) {
+HIDE void init_rJava(void) {
   jclass c;
-  JNIEnv *env=getJNIEnv();
+  JNIEnv *env = getJNIEnv();
   if (!env) return; /* initJVMfailed, so we cannot proceed */
   
   /* get global classes. we make the references explicitely global (although unloading of String/Object is more than unlikely) */
@@ -209,11 +221,20 @@ static void init_rJava(void) {
 
   mid_forName  = (*env)->GetStaticMethodID(env, javaClassClass, "forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;");
   if (!mid_forName) error("cannot obtain Class.forName method ID");
+  
   mid_getName  = (*env)->GetMethodID(env, javaClassClass, "getName", "()Ljava/lang/String;");
   if (!mid_getName) error("cannot obtain Class.getName method ID");
+  
+  mid_getSimpleName  = (*env)->GetMethodID(env, javaClassClass, "getSimpleName", "()Ljava/lang/String;");
+  if (!mid_getSimpleName) error("cannot obtain Class.getSimpleName method ID");
+  
+  mid_getSuperclass =(*env)->GetMethodID(env, javaClassClass, "getSuperclass", "()Ljava/lang/Class;");
+  if (!mid_getSuperclass) error("cannot obtain Class.getSuperclass method ID");
+  
   mid_getField = (*env)->GetMethodID(env, javaClassClass, "getField",
 				     "(Ljava/lang/String;)Ljava/lang/reflect/Field;");
   if (!mid_getField) error("cannot obtain Class.getField method ID");
+ 
   mid_getType  = (*env)->GetMethodID(env, javaFieldClass, "getType",
 				     "()Ljava/lang/Class;");
   if (!mid_getType) error("cannot obtain Field.getType method ID");
@@ -265,7 +286,8 @@ REP SEXP RinitJVM(SEXP par)
       }
       if (i==vms) Rf_error("Failed to attach to any existing JVM.");
       else {
-        init_rJava();
+	jvm = jvms[i];
+	init_rJava();
       }
       PROTECT(e=allocVector(INTSXP,1));
       INTEGER(e)[0]=(i==vms)?-2:1;
@@ -309,5 +331,58 @@ REP void doneJVM() {
   (*jvm)->DestroyJavaVM(jvm);
   jvm = 0;
   eenv = 0;
+}
+
+/**
+ * Initializes the cached values of classes and methods used internally
+ * These classes and methods are the ones that are in rJava (RJavaTools, ...)
+ * not java standard classes (Object, Class)
+ */ 
+REPC SEXP initRJavaTools(){
+
+	JNIEnv *env=getJNIEnv();
+	jclass c; 
+	
+	/* classes */
+	
+	// RJavaTools class
+	c= findClass( env, "RJavaTools" ) ; 
+	if (!c) error("unable to find the RJavaTools class");
+	rj_RJavaTools_Class=(*env)->NewGlobalRef(env, c);
+	if (!rj_RJavaTools_Class) error("unable to create a global reference to the RJavaTools class");
+	(*env)->DeleteLocalRef(env, c);
+	
+	// RJavaImport
+	c= findClass( env, "RJavaImport" ) ; 
+	if (!c) error("unable to find the RJavaImport class");
+	rj_RJavaImport_Class=(*env)->NewGlobalRef(env, c);
+	if (!rj_RJavaImport_Class) error("unable to create a global reference to the RJavaImport class");
+	(*env)->DeleteLocalRef(env, c);
+	
+	
+	/* methods */
+	
+	mid_RJavaTools_getFieldTypeName  = (*env)->GetStaticMethodID(env, rj_RJavaTools_Class, 
+		"getFieldTypeName", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/String;");
+	if (!mid_RJavaTools_getFieldTypeName) error("cannot obtain RJavaTools.getFieldTypeName method ID");
+	
+	mid_rj_getSimpleClassNames  = (*env)->GetStaticMethodID(env, rj_RJavaTools_Class, 
+		"getSimpleClassNames", "(Ljava/lang/Object;Z)[Ljava/lang/String;");
+	if (!mid_rj_getSimpleClassNames) error("cannot obtain RJavaTools.getDimpleClassNames method ID");
+	
+	mid_RJavaImport_getKnownClasses = (*env)->GetMethodID(env, rj_RJavaImport_Class, 
+		"getKnownClasses", "()[Ljava/lang/String;");
+	if (!mid_RJavaImport_getKnownClasses) error("cannot obtain RJavaImport.getKnownClasses method ID");
+	
+	mid_RJavaImport_lookup = (*env)->GetMethodID(env, rj_RJavaImport_Class, 
+		"lookup", "(Ljava/lang/String;)Ljava/lang/Class;");
+	if( !mid_RJavaImport_lookup) error("cannot obtain RJavaImport.lookup method ID");
+	
+	mid_RJavaImport_exists = (*env)->GetMethodID(env, rj_RJavaImport_Class, 
+		"exists", "(Ljava/lang/String;)Z");
+	if( ! mid_RJavaImport_exists ) error("cannot obtain RJavaImport.exists method ID");
+	// maybe add RJavaArrayTools, ...
+	
+	return R_NilValue; 
 }
 

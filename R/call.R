@@ -2,27 +2,32 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 360 2009-08-20 01:05:33Z urbanek $
+## $Id: call.R 505 2009-10-27 20:42:06Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
-  class <- gsub("\\.","/",class) # allow non-JNI specifiation
+  class <- gsub("\\.", "/", as.character(class)) # allow non-JNI specifiation
+  # TODO: should this do "S" > "java/lang/String", ... like .jcall
+  
   if (check) .jcheck(silent=TRUE)
   o<-.External("RcreateObject", class, ..., silent=silent, PACKAGE="rJava")
   if (check) .jcheck(silent=silent)
   if (is.null(o)) {
-    if (!silent)
-      stop("Failed to create object of class `",class,"'")
-    else
-      o <- .jzeroRef
+  	  if (!silent) {
+    	  stop("Failed to create object of class `",class,"'")
+      } else {
+    	  o <- .jzeroRef
+      }
   }
   new("jobjRef", jobj=o, jclass=class)
 }
 
-# create a new object reference manually (avoid! for backward compat only!) the problem with this is that you need a valid `jobj' which is implementation-dependent so it is undefined outside rJava internals
+# create a new object reference manually (avoid! for backward compat only!) 
+# the problem with this is that you need a valid `jobj' which 
+# is implementation-dependent so it is undefined outside rJava internals
 # it is now used by JRI.createRJavaRef, though
 .jmkref <- function(jobj, jclass="java/lang/Object") {
-  new("jobjRef", jobj=jobj, jclass=gsub('\\.','/',jclass))
+  new("jobjRef", jobj=jobj, jclass=gsub('\\.','/',as.character(jclass)))
 }
 
 # evaluates an array reference. If rawJNIRefSignature is set, then obj is not assumed to be
@@ -35,7 +40,7 @@
       if (!inherits(obj,"jobjRef"))
         stop("object is not a Java object reference (jobjRef/jarrayRef).")
       cl <- .jclass(obj)
-      if (is.null(cl) || substr(cl,1,1) != "[")
+      if (is.null(cl) || !isJavaArraySignature(cl) )
         stop("object is not a Java array.")
       sig <- cl
     } else sig <- obj@jsig
@@ -61,17 +66,19 @@
     return(.Call("RgetStringArrayCont", jobj, PACKAGE="rJava"))
   else if (substr(sig,1,2)=="[L")
     return(lapply(.Call("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
-                  function(x) new("jobjRef", jobj=x, jclass=substr(sig,3,nchar(sig)-1)) ))
+                  function(x) new("jobjRef", jobj=x, jclass=substr(sig, 3, nchar(sig)-1)) ))
   else if (substr(sig,1,2)=="[[")
     return(lapply(.Call("RgetObjectArrayCont", jobj, PACKAGE="rJava"),
-                  function(x) new("jarrayRef", jobj=x, jclass="", jsig=substr(sig,2,nchar(sig))) ))
+                  function(x) newArray(jobj=x, signature=substr(sig, 2, 999), simplify=FALSE)))
   # if we don't know how to evaluate this, issue a warning and return the jarrayRef
   if (!silent)
     warning(paste("I don't know how to evaluate an array with signature",sig,". Returning a reference."))
-  new("jarrayRef", jobj=jobj, jclass="", jsig=sig)
+  newArray( jobj = jobj, signature = sig )
 }
 
-.jcall <- function(obj, returnSig="V", method, ..., evalArray=TRUE, evalString=TRUE, check=TRUE, interface="RcallMethod") {
+.jcall <- function(obj, returnSig="V", method, ..., evalArray=TRUE, 
+	evalString=TRUE, check=TRUE, interface="RcallMethod", 
+	use.true.class = TRUE) {
   if (check) .jcheck()
   r<-NULL
   # S is a shortcut for Ljava/lang/String;
@@ -82,21 +89,44 @@
   # original S (short) is now mapped to T so we need to re-map it (we don't really support short, though)
   if (returnSig=="T") returnSig <- "S"
   if (returnSig=="[T") returnSig <- "[S"
-  if (inherits(obj,"jobjRef") || inherits(obj,"jarrayRef"))
+  
+  if (inherits(obj,"jobjRef") || inherits(obj,"jarrayRef") || inherits(obj,"jrectRef") )
     r<-.External(interface, obj@jobj, returnSig, method, ..., PACKAGE="rJava")
   else
     r<-.External(interface, as.character(obj), returnSig, method, ..., PACKAGE="rJava")
   if (returnSig=="V") return(invisible(NULL))
-  if (substr(returnSig,1,1)=="[") {
-    if (evalArray)
-      r<-.jevalArray(r,rawJNIRefSignature=returnSig)
-    else
-      r <- new("jarrayRef", jobj=r, jclass="", jsig=returnSig)
-  } else if (substr(returnSig,1,1)=="L") {
-    if (is.null(r)) return(r)
+  
+  if( use.true.class && !is.null( r ) ){
+  	  if( ! ( isPrimitiveTypeName(returnSig) || isArraySignature(returnSig) ) ){
+  	  	  # avoid calling .jcall since we work on external pointers directly here
+  	  	  clazz     <- .External(interface, r    , "Ljava/lang/Class;", "getClass", PACKAGE = "rJava" )
+  	  	  clazzname <- .External(interface, clazz, "Ljava/lang/String;", "getName", PACKAGE = "rJava" )
+  	  	  clazzname <- .External("RgetStringValue", clazzname, PACKAGE="rJava")
+  	  	  returnSig <- tojniSignature( clazzname ) 
+  	  }
+  }
+  
+  if ( isJavaArraySignature(returnSig) ) {
+  	  if (evalArray){
+  	  	  r <- .jevalArray(r,rawJNIRefSignature=returnSig)
+      } else {
+      	  # since we don't know if it is going to be rectangular or not, 
+      	  # we need to use newArray to dispatch between 
+      	  # jarrayRef and jrectRef
+      	  # TODO: should we pass down evalString
+      	  # TODO: should we control simplify from .jcall
+      	  r <- newArray( jobj = r, signature = returnSig )
+      }
+  } else if ( substr(returnSig,1,1)=="L") {
+  	  if (is.null(r)){
+  	  	  if( check ) .jcheck( silent = FALSE )
+  	  	  return(r)
+  	  }
     
-    if (returnSig=="Ljava/lang/String;" && evalString)
-      return(.External("RgetStringValue", r, PACKAGE="rJava"))
+  	if (returnSig=="Ljava/lang/String;" && evalString){
+      if( check ) .jcheck( silent = FALSE )
+  	  return(.External("RgetStringValue", r, PACKAGE="rJava"))
+    }
     r <- new("jobjRef", jobj=r, jclass=substr(returnSig,2,nchar(returnSig)-1))
   }
   if (check) .jcheck()
@@ -117,13 +147,26 @@
   r
 }
 
-# casts java object into new.class - without(!) type checking
-.jcast <- function(obj, new.class="java/lang/Object") {
+#' casts java object into new.class
+#' 
+#' @param obj a java object reference
+#' @param new.class the new class (in JNI or Java)
+#' @param check logical. If TRUE the cast if checked
+#' @param convert.array logical. If TRUE and the new class represents an array, then a jarrayRef object is made
+.jcast <- function(obj, new.class="java/lang/Object", check = FALSE, convert.array = FALSE) {
   if (!is(obj,"jobjRef"))
-    stop("connot cast anything but Java objects")
-  r<-obj
-  new.class <- gsub("\\.","/", new.class) # allow non-JNI specifiation
-  r@jclass<-new.class
+    stop("cannot cast anything but Java objects")
+  if( check && !.jinstanceof( obj, new.class) ){
+  	  stop( sprintf( "cannot cast object to '%s'", new.class ) ) 
+  }
+  
+  new.class <- gsub("\\.","/", as.character(new.class)) # allow non-JNI specifiation
+  if( convert.array && !is( obj, "jarrayRef" ) && isJavaArray( obj ) ){
+  	 r <- .jcastToArray( obj, signature = new.class)
+  } else {
+  	 r <- obj
+  	 r@jclass <- new.class
+  }
   r
 }
 
@@ -132,29 +175,38 @@
   if (!is(obj, "jobjRef"))
     return(.jarray(obj))
   if (is.null(signature)) {
+  	  # TODO: factor out these two calls into a separate function
     cl <- .jcall(obj, "Ljava/lang/Class;", "getClass")
     cn <- .jcall(cl, "Ljava/lang/String;", "getName")
-    if (substr(cn,1,1) != "[") {
+    if ( !isJavaArraySignature(cn) ) {
       if (quiet)
         return(obj)
       else
         stop("cannot cast to array, object signature is unknown and class name is not an array")
     }
     signature <- cn
+  } else{
+  	  if( !isJavaArraySignature(signature) ){
+  	  	  if( quiet ) {
+  	  	  	  return( obj )
+  	  	  } else{
+  	  	  	  stop( "cannot cast to array, signature is not an array signature" )
+  	  	  }
+  	  }
   }
   signature <- gsub('\\.', '/', signature)
   if (inherits(obj, "jarrayRef")) {
     obj@jsig <- signature
     return(obj)
   }
-  new("jarrayRef",jobj=obj@jobj,jsig=signature,jclass=class)
+  newArray( obj )
 }
 
 # creates a new "null" object of the specified class
 # although it sounds weird, the class is important when passed as
 # a parameter (you can even cast the result)
 .jnull <- function(class="java/lang/Object") { 
-  new("jobjRef", jobj=.jzeroRef, jclass=class)
+  new("jobjRef", jobj=.jzeroRef, jclass=as.character(class))
 }
 
 .jcheck <- function(silent=FALSE) {
@@ -169,16 +221,67 @@
     .jcall("java/lang/System", "S", "getProperty", as.character(key)[1])
 }
 
-.jarray <- function(x, contents.class=NULL) {
-# common mistake is to not specify a list but just a single Java object
-# but, well, people just keep doing it so we may as well support it 
-	if (inherits(x,"jobjRef")||inherits(x,"jarrayRef"))
+#' gets the dim of an array, or its length if it is just a vector
+getDim <- function(x){
+	dim <- dim(x)
+	if( is.null( dim ) ) dim <- length(x)
+	dim
+}
+
+.jarray <- function(x, contents.class=NULL, dispatch = TRUE ) {
+	# this already is an array, so don't bother
+	if( isJavaArray( x ) ) return( newArray( x, simplify = FALSE) ) 
+	
+	# this is a two stage process, first we need to convert into 
+	# a flat array using the jni code
+	# TODO: but this needs to move to the internal jni world to avoid 
+	#       too many copies
+	
+	# common mistake is to not specify a list but just a single Java object
+	# but, well, people just keep doing it so we may as well support it 
+	if( inherits(x,"jobjRef") ){
 		x <- list(x)
-	.Call("RcreateArray", x, contents.class, PACKAGE="rJava")
+		dim <- 1L
+	} else{
+		dim <- getDim( x )
+	}
+	
+	# the jni call
+	array <- .Call("RcreateArray", x, contents.class, PACKAGE="rJava")
+	
+	if( !dispatch ){
+		return( array )
+	}
+	
+	if( is.list( x ) ){
+		# if the input of RcreateArray was a list, we need some more care
+		# because we cannot be sure the array is rectangular so we have to 
+		# check it 
+		newArray( array, simplify = FALSE )
+	} else {
+	
+		# then we transform this to a rectangular array of the proper dimensions
+		if( length( dim ) == 1L ) {
+			# single dimension array
+			new( "jrectRef", jobj = array@jobj, jsig = array@jsig, 
+					jclass = array@jclass, dimension = dim )
+		} else {
+			builder <- .jnew( "RectangularArrayBuilder", .jcast(array), dim )
+			clazz <- .jcall( builder, "Ljava/lang/String;", "getArrayClassName" )
+			
+			# we cannot use .jcall here since it will try to simplify the array
+			# or go back to java to calculate its dimensions, ...
+			r <- .External( "RcallMethod", builder@jobj, 
+				"Ljava/lang/Object;", "getArray", PACKAGE="rJava")
+			
+			new( "jrectRef", jobj = r, dimension = dim, 
+				jclass = clazz, jsig = tojni( clazz ) ) 
+		}  
+	}
 }
 
 # works on EXTPTR or jobjRef or NULL. NULL is always silently converted to .jzeroRef
-.jidenticalRef <- function(a,b) {
+.jidenticalRef <- function(a,b) {        
   if (is(a,"jobjRef")) a<-a@jobj
   if (is(b,"jobjRef")) b<-b@jobj
   if (is.null(a)) a <- .jzeroRef
@@ -207,8 +310,10 @@ is.jnull <- function(x) {
   cl
 }
 
-# return class object for a given class name; silent determines whether an error should be thrown on failure (FALSE) or just null reference (TRUE)
+# return class object for a given class name; silent determines whether
+# an error should be thrown on failure (FALSE) or just null reference (TRUE)
 .jfindClass <- function(cl, silent=FALSE) {
+  if (inherits(cl, "jclassName")) return(cl@jobj)
   if (!is.character(cl) || length(cl)!=1)
     stop("invalid class name")
   cl<-gsub("/",".",cl)
@@ -217,16 +322,18 @@ is.jnull <- function(x) {
     try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,TRUE,.jcast(.rJava.class.loader,"java.lang.ClassLoader"), check=FALSE))
   else
     try(a <- .jcall("java/lang/Class","Ljava/lang/Class;","forName",cl,check=FALSE))
-  .jcheck(silent=TRUE)
+  # this is really .jcheck but we don't want it to appear on the call stack
+  .C("RJavaCheckExceptions", silent, FALSE, PACKAGE = "rJava")
   if (!silent && is.jnull(a)) stop("class not found")
   a
 }
 
-# Java-side inheritance check; NULL inherits from any class, because it can be cast to any class type; cl can be a class name or a jobjRef to a class object
+# Java-side inheritance check; NULL inherits from any class, because 
+# it can be cast to any class type; cl can be a class name or a jobjRef to a class object
 .jinherits <- function(o, cl) {
   if (is.jnull(o)) return(TRUE)
   if (!is(o, "jobjRef")) stop("invalid object")
-  if (is.character(cl)) cl <- .jfindClass(cl)
+  if (is.character(cl)) cl <- .jfindClass(cl) else if (inherits(cl, "jclassName")) cl <- cl@jobj
   if (!is(cl, "jobjRef")) stop("invalid class object")  
   ocl <- .jclassRef(o)
   .Call("RisAssignableFrom", ocl@jobj, cl@jobj, PACKAGE="rJava")
@@ -264,11 +371,8 @@ is.jnull <- function(x) {
   }
   r <- .Call("RgetField", o, sig, as.character(name), as.integer(true.class), PACKAGE="rJava")
   if (inherits(r, "jobjRef")) {
-    if (substr(r@jclass,1,1) == "[") {
-      if (convert)
-        r <- .jevalArray(r, rawJNIRefSignature=r@jclass)
-      else
-        r <- new("jarrayRef", jobj=r@jobj, jclass=r@jclass, jsig=r@jclass)
+    if (isJavaArraySignature(r@jclass)) {
+    	r <- if (convert) .jevalArray(r, rawJNIRefSignature=r@jclass) else newArray(r, FALSE)
     }
     if (convert && inherits(r, "jobjRef")) {
       if (r@jclass == "java/lang/String")
@@ -282,13 +386,3 @@ is.jnull <- function(x) {
 ".jfield<-" <- function(o, name, value)
   .Call("RsetField", o, name, value, PACKAGE="rJava")
 
-# there is no way to distinguish between double and float in R, so we need to mark floats specifically
-.jfloat <- function(x) new("jfloat", as.numeric(x))
-# the same applies to long
-.jlong <- function(x) new("jlong", as.numeric(x))
-# and byte
-.jbyte <- function(x) new("jbyte", as.integer(x))
-# and short
-.jshort <- function(x) new("jshort", as.integer(x))
-# and char (experimental)
-.jchar <- function(x) new("jchar", as.integer(x))

@@ -1,6 +1,8 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
+0.5-1	(under development)
+
 0.5-0	2009-08-22
     o	API 1.9: added rniPreserve, rniRelease, rniParentEnv, rniFindVar,
 	         rniListEnv, rniSpecialObject, rniPrintValue,

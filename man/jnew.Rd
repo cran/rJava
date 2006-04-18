@@ -4,7 +4,7 @@
   Create a Java object
 }
 \description{
-  \code{.jnew} create a new Java object
+	\code{.jnew} create a new Java object.
 }
 \usage{
 .jnew(class, ..., check=TRUE, silent=!check)
@@ -12,7 +12,7 @@
 \arguments{
   \item{class}{fully qualified class name in JNI notation (e.g. \code{"java/lang/String"}).}
   \item{...}{
-    Any parametes that will be passed to the corresponding
+    Any parameters that will be passed to the corresponding
     constructor. The parameter types are determined automatically and/or
     taken from the \code{jobjRef} object. For details see
     \code{\link{.jcall}}. Note that all named parameters are discarded.}

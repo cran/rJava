@@ -1,5 +1,7 @@
 ## functions for some basic exception handling
 
+# FIXME: should all these actually be deprecated or defunct
+
 ## poll for an exception
 .jgetEx <- function(clear=FALSE) {
   exo <- .Call("RpollException", PACKAGE="rJava")
@@ -24,3 +26,23 @@
   else
     stop("Invalid exception.")
 }
+
+
+"$.Throwable" <- function( x, name ){
+	if( name %in% names(x) ){
+		x[[ name ]]
+	} else{
+		._jobjRef_dollar( x[["jobj"]], name )
+	}
+}
+
+"$<-.Throwable" <- function( x, name, value ){
+	if( name %in% names(x) ){
+		x[[ name ]] <- value
+	} else{
+		._jobjRef_dollargets( x[["jobj"]], name, value )
+	}
+	x
+	
+}
+

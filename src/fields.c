@@ -35,6 +35,7 @@ static char *classToJNI(const char *cl) {
 /* find field signature using reflection. Basically it is the same as:
    cls.getField(fnam).getType().getName()
    + class2JNI mangling */
+// TODO; use the mid_RJavaTools_getFieldTypeName method ID instead
 static char *findFieldSignature(JNIEnv *env, jclass cls, const char *fnam) {
   char *detsig = 0;
   jstring s = newString(env, fnam);
@@ -80,7 +81,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
   JNIEnv *env=getJNIEnv();
 
   if (obj == R_NilValue) return R_NilValue;
-  if (inherits(obj, "jobjRef") || inherits(obj, "jarrayRef"))
+  if ( IS_JOBJREF(obj) )
     obj = GET_SLOT(obj, install("jobj"));
   if (TYPEOF(obj)==EXTPTRSXP) {
     jverify(obj);
@@ -95,7 +96,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
   if (o) {
     rjprintf("RgetField.object: "); printObject(env, o);
   } else {
-    rjprintf("RgetFiled.class: %s\n", clnam);
+    rjprintf("RgetField.class: %s\n", clnam);
   }
 #endif
   if (o)
@@ -278,7 +279,7 @@ REPC SEXP RsetField(SEXP ref, SEXP name, SEXP value) {
     error("invalid field name");
   fnam = CHAR(STRING_ELT(name, 0));
   if (obj == R_NilValue) error("cannot set a field of a NULL object");
-  if (inherits(obj, "jobjRef") || inherits(obj, "jarrayRef"))
+  if (IS_JOBJREF(obj))
     obj = GET_SLOT(obj, install("jobj"));
   if (TYPEOF(obj)==EXTPTRSXP) {
     jverify(obj);
