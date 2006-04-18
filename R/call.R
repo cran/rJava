@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R,v 1.26 2006/05/04 13:44:50 urbaneks Exp $
+## $Id: call.R,v 1.27 2006/05/09 21:58:37 urbaneks Exp $
 
 ## define S4 classes
 setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass=NULL))
@@ -189,6 +189,28 @@ setClass("jfloat", representation("numeric"))
   new.class <- gsub("\\.","/", new.class) # allow non-JNI specifiation
   r@jclass<-new.class
   r
+}
+
+# makes sure that a given object is jarrayRef 
+.jcastToArray <- function(obj, signature=NULL, class="", quiet=FALSE) {
+  if (!inherits(obj, "jobjRef") && !inherits(obj, "jarrayRef"))
+    return(.jarray(obj))
+  if (is.null(signature)) {
+    cl <- .jcall(obj, "Ljava/lang/Class;", "getClass")
+    cn <- .jcall(cl, "Ljava/lang/String;", "getName")
+    if (substr(cn,1,1) != "[") {
+      if (quiet)
+        return(obj)
+      else
+        stop("cannot cast to array, object signature is unknown and class name is not an array")
+    }
+    signature <- cn
+  }
+  if (inherits(obj, "jarrayRef")) {
+    obj@jsig <- signature
+    return(obj)
+  }
+  new("jarrayRef",jobj=obj@jobj,jsig=signature,jclass=class)
 }
 
 # creates a new "null" object of the specified class
