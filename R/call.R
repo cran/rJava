@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R,v 1.24 2006/04/17 22:18:26 urbaneks Exp $
+## $Id: call.R,v 1.25 2006/04/19 17:14:37 helbigm Exp $
 
 ## define S4 classes
 setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass=NULL))
@@ -273,7 +273,7 @@ print.jarrayRef <- function(x, ...) {
     }
 
     # also adjust the java.class.path property to not confuse others
-    if (length(ccp)>1 || (length(cpp)==1 && nchar(ccp[1])>0))
+    if (length(ccp)>1 || (length(ccp)==1 && nchar(ccp[1])>0))
       rcp <- c(ccp, rcp)
     acp <- paste(rcp, collapse=.Platform$path.sep)
     .jcall("java/lang/System","S","setProperty","java.class.path",as.character(acp))
