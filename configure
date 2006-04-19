@@ -849,6 +849,15 @@ Optional Features:
                           implementations of AWT. This feature is highly
                           experimental, becasue of synchronization issues, so
                           use with care. [no]
+  --enable-jni-cache      enable support for caching of the JNI environment.
+                          With this option turned on, the JNI state is stored
+                          locally and re-used for subsequent calls. This will
+                          work *only* if no threads are used, because each
+                          thread has a separate JNI state. Enabling this
+                          option can give some performance boost for
+                          applications that call JNI very often. If used in a
+                          threaded environment, it is bound to crash, so use
+                          with care. [no]
 
 Some influential environment variables:
   CC          C compiler command
@@ -1329,6 +1338,15 @@ if test "${enable_threads+set}" = set; then
   want_threads="${enableval}"
 else
   want_threads=no
+fi;
+
+## enable JNI-cache
+# Check whether --enable-jni-cache or --disable-jni-cache was given.
+if test "${enable_jni_cache+set}" = set; then
+  enableval="$enable_jni_cache"
+  want_jni_cache="${enableval}"
+else
+  want_jni_cache=no
 fi;
 
 # Checks for programs.
@@ -3613,8 +3631,8 @@ fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 
-if test -z "${JAVA_HOME}" ; then
-  JAVA_PATH=${JAVA_HOME}:${PATH}
+if test -n "${JAVA_HOME}" ; then
+  JAVA_PATH=${JAVA_HOME}:${JAVA_HOME}/jre/bin:${JAVA_HOME}/bin:${PATH}
 else
   JAVA_PATH=${PATH}
 fi
@@ -3763,7 +3781,7 @@ JAVA_INC="-I${JNI_H}"
 # (well, those are presumably the only platforms supported by Sun's JDK and others don't need this
 # at least as of now - 01/2004)
 jac_found_md=no
-for mddir in . linux solaris ppc irix alpha aix hp-ux genunix cygwin win32; do
+for mddir in . linux solaris ppc irix alpha aix hp-ux genunix cygwin win32 freebsd; do
 as_ac_File=`echo "ac_cv_file_${JNI_H}/$mddir/jni_md.h" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for ${JNI_H}/$mddir/jni_md.h" >&5
 echo $ECHO_N "checking for ${JNI_H}/$mddir/jni_md.h... $ECHO_C" >&6
@@ -3923,6 +3941,26 @@ _ACEOF
   fi
   echo "$as_me:$LINENO: result: ${use_threads}" >&5
 echo "${ECHO_T}${use_threads}" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+echo "$as_me:$LINENO: checking whether JNI cache support is requested" >&5
+echo $ECHO_N "checking whether JNI cache support is requested... $ECHO_C" >&6
+if test "${want_jni_cache}" == yes; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+  if test "${use_threads}" == yes; then
+    { { echo "$as_me:$LINENO: error: Threads and JNI cache cannot be used at the same time, because JNI cache is by definition not thread-safe. Please disable either option." >&5
+echo "$as_me: error: Threads and JNI cache cannot be used at the same time, because JNI cache is by definition not thread-safe. Please disable either option." >&2;}
+   { (exit 1); exit 1; }; }
+  fi
+
+cat >>confdefs.h <<\_ACEOF
+#define JNI_CACHE 1
+_ACEOF
+
 else
   echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6

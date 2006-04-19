@@ -1,9 +1,15 @@
+## This file is part of the rJava package - low-level R/Java interface
+## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
+## For license terms see DESCRIPTION and/or LICENSE
+##
+## $Id: call.R,v 1.24 2006/04/17 22:18:26 urbaneks Exp $
+
 ## define S4 classes
 setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass=NULL))
 setClass("jarrayRef", representation("jobjRef", jsig="character"))
 setClass("jfloat", representation("numeric"))
 
-.jinit <- function(classpath=NULL, ..., silent=FALSE) {
+.jinit <- function(classpath=NULL, parameters=NULL, ..., silent=FALSE) {
   # determine path separator
   if (.Platform$OS.type=="windows")
     path.sep<-";"
@@ -27,11 +33,19 @@ setClass("jfloat", representation("numeric"))
   
   if (is.null(classpath)) classpath<-""
   # call the corresponding C routine to initialize JVM
-  xr<-.External("RinitJVM",classpath,PACKAGE="rJava")
+  xr<-.External("RinitJVM", classpath, parameters, PACKAGE="rJava")
   if (xr==-1) stop("Unable to initialize JVM.")
-  if (xr==-2) stop("Another JVM is already running and rJava was unable to attach itself to that JVM.")
-  if (xr==1 && classpath!="" && !silent) warning("Since another JVM is already running, it's not possible to change its class path. Therefore the value of the speficied classpath was ignored.")
-  #.jniInitialized<<-TRUE # hack hack hack - we should use something better ..
+  if (xr==-2) stop("Another VM is already running and rJava was unable to attach to that VM.")
+  if (xr==1 && nchar(classpath)>0) {
+    # it's a hack, so we run it in try(..) in case BadThings(TM) happen ...
+    cpr <- try(.jmergeClassPath(classpath), silent=TRUE)
+    if (inherits(cpr, "try-error")) {
+      .jcheck(silent=TRUE)
+      if (!silent) warning("Another VM is running already and the VM did not allow me to append paths to the class path.")
+    }
+    if (length(parameters)>0 && !silent)
+      warning("Cannot set VM parameters, because VM is running already.")
+  }
 
   # this should remove any lingering .jclass objects from the global env
   # left there by previous versions of rJava
@@ -71,7 +85,7 @@ setClass("jfloat", representation("numeric"))
 # create a new object
 .jnew <- function(class, ...) {
   class <- gsub("\\.","/",class) # allow non-JNI specifiation
-  .jcheck()
+  .jcheck(silent=TRUE)
   o<-.External("RcreateObject", class, ..., PACKAGE="rJava")
   .jcheck()
   if (is.null(o))
@@ -99,8 +113,12 @@ setClass("jfloat", representation("numeric"))
     return(.External("RgetIntArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[J")
     return(.External("RgetLongArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[B")
+	return(.External("RgetByteArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[D")
     return(.External("RgetDoubleArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[F")
+    return(.External("RgetFloatArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[Ljava/lang/String;")
     return(.External("RgetStringArrayCont", jobj, PACKAGE="rJava"))
   else if (substr(sig,1,2)=="[L")
@@ -118,10 +136,14 @@ setClass("jfloat", representation("numeric"))
 .jcall <- function(obj, returnSig="V", method, ..., evalArray=TRUE, evalString=TRUE, interface="RcallMethod") {
   .jcheck()
   r<-NULL
+  # S is a shortcut for Ljava/lang/String;
   if (returnSig=="S")
     returnSig<-"Ljava/lang/String;"
   if (returnSig=="[S")
     returnSig<-"[Ljava/lang/String;"
+  # original S (short) is now mapped to T so we need to re-map it (we don't really support short, though)
+  if (returnSig=="T") returnSig <- "S"
+  if (returnSig=="[T") returnSig <- "[S"
   if (inherits(obj,"jobjRef") || inherits(obj,"jarrayRef"))
     r<-.External("RcallMethod",obj@jobj,returnSig, method, ..., PACKAGE="rJava")
   else
@@ -141,8 +163,6 @@ setClass("jfloat", representation("numeric"))
   .jcheck()
   r
 }
-
-#.jfree <- rm
 
 .jstrVal <- function(obj) {
   # .jstrVal(.jstrVal(...)) = .jstrVal(...)
@@ -176,14 +196,15 @@ setClass("jfloat", representation("numeric"))
 }
 
 .jcheck <- function(silent=FALSE) {
-  if (!exists(".jniInitialized") || !.jniInitialized)
-    stop("Java VM was not initialized. Please use .jinit to initialize JVM.")
   r <- .C("RJavaCheckExceptions", silent, FALSE, PACKAGE="rJava")
   invisible(r[[2]])
 }
 
 .jproperty <- function(key) {
-  .jcall("java/lang/System", "S", "getProperty", as.character(key)[1])
+  if (length(key)>1)
+    sapply(key, .jproperty)
+  else
+    .jcall("java/lang/System", "S", "getProperty", as.character(key)[1])
 }
 
 print.jobjRef <- function(x, ...) {
@@ -196,6 +217,66 @@ print.jarrayRef <- function(x, ...) {
   invisible(x)
 }
 
-.jarray <- function(x) {
-  .Call("RcreateArray", x, PACKAGE="rJava")
+.jarray <- function(x, contents.class=NULL) {
+# common mistake is to not specify a list but just a single Java object
+# but, well, people just keep doing it so we may as well support it 
+	if (inherits(x,"jobjRef")||inherits(x,"jarrayRef"))
+		x <- list(x)
+	.Call("RcreateArray", x, contents.class, PACKAGE="rJava")
+}
+
+.jmergeClassPath <- function(cp) {
+  ccp <- .jcall("java/lang/System","S","getProperty","java.class.path")
+  ccpc <- strsplit(ccp, .Platform$path.sep)[[1]]
+  cpc <- strsplit(cp, .Platform$path.sep)[[1]]
+  rcp <- cpc[!(cpc %in% ccpc)]
+  if (length(rcp) > 0) {
+    # the loader requires directories to include trailing slash
+    # Windows: need / or \ ? (untested)
+    dirs <- which(file.info(rcp)$isdir)
+    for (i in dirs)
+      if (substr(rcp[i],nchar(rcp[i]),nchar(rcp[i]))!=.Platform$file.sep)
+        rcp[i]<-paste(rcp[i], .Platform$file.sep, sep='')
+
+    ## this is a hack, really, that exploits the fact that the system class loader
+    ## is in fact a subclass of URLClassLoader and it also subverts protection
+    ## of the addURL class using reflection - yes, bad hack, but we cannot
+    ## replace the system loader with our own, because we may need to attach to
+    ## an existing VM
+    ## The original discussion and code was at:
+    ## http://forum.java.sun.com/thread.jspa?threadID=300557&start=15&tstart=0
+
+    ## it should probably be run in try(..) because chances are that it will
+    ## break if Sun changes something...
+    cl <- .jcall("java/lang/ClassLoader", "Ljava/lang/ClassLoader;", "getSystemClassLoader")
+    urlc <- .jcall("java/lang/Class", "Ljava/lang/Class;", "forName", "java.net.URL")
+    clc <- .jcall("java/lang/Class", "Ljava/lang/Class;", "forName", "java.net.URLClassLoader")
+    ar <- .jcall("java/lang/reflect/Array", "Ljava/lang/Object;",
+                         "newInstance", .jclassClass, 1:1)
+    .jcall("java/lang/reflect/Array", "V", "set",
+                  .jcast(ar, "java/lang/Object"), 0:0,
+                  .jcast(urlc, "java/lang/Object"))
+    m<-.jcall(clc, "Ljava/lang/reflect/Method;", "getDeclaredMethod", "addURL", .jcast(ar,"[Ljava/lang/Class;"))
+    .jcall(m, "V", "setAccessible", TRUE)
+
+    ar <- .jcall("java/lang/reflect/Array", "Ljava/lang/Object;",
+                 "newInstance", .jclassObject, 1:1)
+    
+    for (fn in rcp) {
+      f <- .jnew("java/io/File", fn)
+      url <- .jcall(f, "Ljava/net/URL;", "toURL")
+      .jcall("java/lang/reflect/Array", "V", "set",
+             .jcast(ar, "java/lang/Object"), 0:0,
+             .jcast(url, "java/lang/Object"))
+      .jcall(m, "Ljava/lang/Object;", "invoke",
+             .jcast(cl, "java/lang/Object"), .jcast(ar, "[Ljava/lang/Object;"))
+    }
+
+    # also adjust the java.class.path property to not confuse others
+    if (length(ccp)>1 || (length(cpp)==1 && nchar(ccp[1])>0))
+      rcp <- c(ccp, rcp)
+    acp <- paste(rcp, collapse=.Platform$path.sep)
+    .jcall("java/lang/System","S","setProperty","java.class.path",as.character(acp))
+  } # if #rcp>0
+  invisible(.jcall("java/lang/System","S","getProperty","java.class.path"))
 }

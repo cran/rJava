@@ -25,9 +25,23 @@ static JDK1_1InitArgs vm2_args;
 static JDK1_1InitArgs *vm_args;
 #endif  /* finished the version 1.1 material */
 
+/* determine whether eenv chache should be used (has no effect if JNI_CACHE is not set) */
+int use_eenv = 1;
+
+/* cached environment. Do NOT use directly! Always use getJNIEnv()! */
 JNIEnv *eenv;
 
+#ifdef JNI_CACHE
+JNIEnv *getJNIEnvSafe();
 JNIEnv *getJNIEnv() {
+  return (use_eenv)?eenv:getJNIEnvSafe();
+}
+
+JNIEnv *getJNIEnvSafe()
+#else
+JNIEnv *getJNIEnv()
+#endif
+  {
     JNIEnv *env;
     jsize l;
     jint res;
@@ -51,7 +65,7 @@ JNIEnv *getJNIEnv() {
     return env;
 }
 
-int initJVM(char *user_classpath) {
+int initJVM(char *user_classpath, int opts, char **optv) {
   jint res;
   char *classpath;
   
@@ -85,14 +99,7 @@ int initJVM(char *user_classpath) {
   else {
     int total_num_properties, propNum = 0;
     
-    /* total_num_properties = N_JDK_OPTIONS+n_properties; */
-    total_num_properties = N_JDK_OPTIONS;
-    
-    /*
-      if(RequireLibraries) {
-      total_num_properties += 2;
-      }
-    */
+    total_num_properties = N_JDK_OPTIONS + opts;
     
     vm2_options = (JavaVMOption *) calloc(total_num_properties, sizeof(JavaVMOption));
     vm2_args.version = JNI_VERSION_1_2;
@@ -106,6 +113,14 @@ int initJVM(char *user_classpath) {
     
     /*   print JNI-related messages */
     /* vm2_options[propNum++].optionString = "-verbose:class,jni"; */
+	
+	if (optv) {
+		int i=0;
+		while (i<opts) {
+			if (*optv) vm2_options[propNum++].optionString = *optv;
+			i++;
+		}
+	}
     vm2_args.nOptions = propNum;
   }
   /* Create the Java VM */
@@ -127,4 +142,8 @@ int initJVM(char *user_classpath) {
 
 void doneJVM() {
   (*jvm)->DestroyJavaVM(jvm);
+}
+
+void RuseJNICache(int *flag) {
+  if (flag) use_eenv=*flag;
 }

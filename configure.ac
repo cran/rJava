@@ -23,6 +23,19 @@ AC_ARG_ENABLE([threads],
 [want_threads="${enableval}"],
 [want_threads=no])
 
+## enable JNI-cache
+AC_ARG_ENABLE([jni-cache],
+[AC_HELP_STRING([--enable-jni-cache],
+	        [enable support for caching of the JNI environment. With this
+		 option turned on, the JNI state is stored locally and re-used
+		 for subsequent calls. This will work *only* if no threads are
+		 used, because each thread has a separate JNI state. Enabling
+		 this option can give some performance boost for applications
+		 that call JNI very often. If used in a threaded environment,
+		 it is bound to crash, so use with care. @<:@no@:>@])],
+[want_jni_cache="${enableval}"],
+[want_jni_cache=no])
+
 # Checks for programs.
 AC_PROG_CC
 
@@ -54,8 +67,8 @@ int main(void) { int i=0x12345678; return (*((char*)&i)==0x78)?0:1; }
 	]
 )
 
-if test -z "${JAVA_HOME}" ; then
-  JAVA_PATH=${JAVA_HOME}:${PATH}
+if test -n "${JAVA_HOME}" ; then
+  JAVA_PATH=${JAVA_HOME}:${JAVA_HOME}/jre/bin:${JAVA_HOME}/bin:${PATH}
 else
   JAVA_PATH=${PATH}
 fi
@@ -92,7 +105,7 @@ JAVA_INC="-I${JNI_H}"
 # (well, those are presumably the only platforms supported by Sun's JDK and others don't need this
 # at least as of now - 01/2004)
 jac_found_md=no
-for mddir in . linux solaris ppc irix alpha aix hp-ux genunix cygwin win32; do
+for mddir in . linux solaris ppc irix alpha aix hp-ux genunix cygwin win32 freebsd; do
 AC_CHECK_FILE(${JNI_H}/$mddir/jni_md.h,[JAVA_INC="${JAVA_INC} -I${JNI_H}/$mddir" jac_found_md=yes])
 if test $jac_found_md == yes; then break; fi
 done
@@ -150,6 +163,17 @@ if test "${want_threads}" == yes; then
     AC_DEFINE(THREADS, 1, [Set if threading support should be enabled.])
   fi
   AC_MSG_RESULT([${use_threads}])
+else
+  AC_MSG_RESULT([no])
+fi
+
+AC_MSG_CHECKING([whether JNI cache support is requested])
+if test "${want_jni_cache}" == yes; then
+  AC_MSG_RESULT([yes])
+  if test "${use_threads}" == yes; then
+    AC_MSG_ERROR([Threads and JNI cache cannot be used at the same time, because JNI cache is by definition not thread-safe. Please disable either option.])
+  fi
+  AC_DEFINE(JNI_CACHE, 1, [Set if caching JNI environment is enabled.])
 else
   AC_MSG_RESULT([no])
 fi

@@ -32,7 +32,7 @@ long time_ms() {
 #endif
 }
 
-long profilerTime;
+static long profilerTime;
 
 #define profStart() profilerTime=time_ms()
 void profReport(char *fmt, ...) {
@@ -111,6 +111,9 @@ SEXP j2SEXP(JNIEnv *env, jobject o, int releaseLocal) {
   }
 }
 
+static int    jvm_opts=0;
+static char **jvm_optv=0;
+
 #ifdef THREADS
 #include <pthread.h>
 
@@ -132,7 +135,7 @@ void *initJVMthread(void *classpath)
   jclass c;
   JNIEnv *lenv;
 
-  thInitResult=initJVM((char*)classpath);
+  thInitResult=initJVM((char*)classpath, jvm_opts, jvm_optv);
   if (thInitResult) return 0;
 
   init_rJava();
@@ -163,12 +166,25 @@ SEXP RinitJVM(SEXP par)
   SEXP e=CADR(par);
   int r=0;
   
+  jvm_opts=0;
+  jvm_optv=0;
+  
   JavaVM *jvms[32];
   jsize vms=0;
 
   if (TYPEOF(e)==STRSXP && LENGTH(e)>0)
-    c=CHAR(STRING_ELT(e,0));
+	  c=CHAR(STRING_ELT(e,0));
 
+  e = CADDR(par);
+  if (TYPEOF(e)==STRSXP && LENGTH(e)>0) {
+	  int len = LENGTH(e);
+	  jvm_optv=(char**)malloc(sizeof(char*)*len);
+	  while (jvm_opts < len) {
+		  jvm_optv[jvm_opts] = CHAR(STRING_ELT(e, jvm_opts));
+		  jvm_opts++;
+	  }
+  }
+  
   r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);
   if (r) {
     Rf_error("JNI_GetCreatedJavaVMs returned %d\n", r);
@@ -214,11 +230,13 @@ SEXP RinitJVM(SEXP par)
   r = thInitResult;
 #else
   profStart();
-  r=initJVM(c);
+  r=initJVM(c, jvm_opts, jvm_optv);
   init_rJava();
   profReport("init_rJava:");
   rjprintf("RinitJVM(non-threaded): initJVM returned %d\n", r);
 #endif
+  if (jvm_optv) free(jvm_optv);
+  jvm_opts=0;
   PROTECT(e=allocVector(INTSXP,1));
   INTEGER(e)[0]=r;
   UNPROTECT(1);
@@ -517,6 +535,37 @@ SEXP RgetIntArrayCont(SEXP par) {
   return ar;
 }
 
+/** get contents of the byte array object */
+SEXP RgetByteArrayCont(SEXP par) {
+	SEXP e=CAR(CDR(par));
+	SEXP ar;
+	jarray o;
+	int l;
+	jbyte *ap;
+	JNIEnv *env=getJNIEnv();
+	
+	profStart();
+	if (e==R_NilValue) return e;
+	if (TYPEOF(e)==EXTPTRSXP)
+		o=(jobject)EXTPTR_PTR(e);
+	else
+		error_return("RgetByteArrayCont: invalid object parameter");
+	rjprintf("RgetByteArrayCont: jarray %x\n",o);
+	if (!o) return R_NilValue;
+	l=(int)(*env)->GetArrayLength(env, o);
+	rjprintf(" convert byte array of length %d\n",l);
+	if (l<0) return R_NilValue;
+	ap=(jbyte*)(*env)->GetByteArrayElements(env, o, 0);
+	if (!ap)
+		error_return("RgetByteArrayCont: can't fetch array contents");
+	PROTECT(ar=allocVector(RAWSXP,l));
+	if (l>0) memcpy(RAW(ar),ap,l);
+	UNPROTECT(1);
+	(*env)->ReleaseByteArrayElements(env, o, ap, 0);
+	profReport("RgetByteArrayCont[%d]:",o);
+	return ar;
+}
+
 /** get contents of the double array object  */
 SEXP RgetDoubleArrayCont(SEXP par) {
   SEXP e=CAR(CDR(par));
@@ -548,13 +597,13 @@ SEXP RgetDoubleArrayCont(SEXP par) {
   return ar;
 }
 
-/** get contents of the long array object (int) */
-SEXP RgetLongArrayCont(SEXP par) {
+/** get contents of the float array object (double) */
+SEXP RgetFloatArrayCont(SEXP par) {
   SEXP e=CAR(CDR(par));
   SEXP ar;
   jarray o;
   int l;
-  jlong *ap;
+  jfloat *ap;
   JNIEnv *env=getJNIEnv();
 
   profStart();
@@ -562,24 +611,58 @@ SEXP RgetLongArrayCont(SEXP par) {
   if (TYPEOF(e)==EXTPTRSXP)
     o=(jobject)EXTPTR_PTR(e);
   else
-    error_return("RgetLongArrayCont: invalid object parameter");
-  rjprintf("RgetLongArrayCont: jarray %d\n",o);
+    error_return("RgetFloatArrayCont: invalid object parameter");
+  rjprintf("RgetFloatArrayCont: jarray %d\n",o);
   if (!o) return R_NilValue;
   l=(int)(*env)->GetArrayLength(env, o);
-  rjprintf(" convert long array of length %d\n",l);
+  rjprintf(" convert float array of length %d\n",l);
   if (l<0) return R_NilValue;
-  ap=(jlong*)(*env)->GetLongArrayElements(env, o, 0);
+  ap=(jfloat*)(*env)->GetFloatArrayElements(env, o, 0);
   if (!ap)
-    error_return("RgetLongArrayCont: can't fetch array contents");
+    error_return("RgetFloatArrayCont: can't fetch array contents");
   PROTECT(ar=allocVector(REALSXP,l));
-  { /* long must be coerced into double .. we use just a cast for each element, bad idea? */
+  { /* jfloat must be coerced into double .. we use just a cast for each element */
     int i=0;
     while (i<l) { REAL(ar)[i]=(double)ap[i]; i++; }
   }
   UNPROTECT(1);
-  (*env)->ReleaseLongArrayElements(env, o, ap, 0);
-  profReport("RgetLongArrayCont[%d]:",o);
+  (*env)->ReleaseFloatArrayElements(env, o, ap, 0);
+  profReport("RgetFloatArrayCont[%d]:",o);
   return ar;
+}
+
+/** get contents of the long array object (int) */
+SEXP RgetLongArrayCont(SEXP par) {
+	SEXP e=CAR(CDR(par));
+	SEXP ar;
+	jarray o;
+	int l;
+	jlong *ap;
+	JNIEnv *env=getJNIEnv();
+	
+	profStart();
+	if (e==R_NilValue) return e;
+	if (TYPEOF(e)==EXTPTRSXP)
+		o=(jobject)EXTPTR_PTR(e);
+	else
+		error_return("RgetLongArrayCont: invalid object parameter");
+	rjprintf("RgetLongArrayCont: jarray %d\n",o);
+	if (!o) return R_NilValue;
+	l=(int)(*env)->GetArrayLength(env, o);
+	rjprintf(" convert long array of length %d\n",l);
+	if (l<0) return R_NilValue;
+	ap=(jlong*)(*env)->GetLongArrayElements(env, o, 0);
+	if (!ap)
+		error_return("RgetLongArrayCont: can't fetch array contents");
+	PROTECT(ar=allocVector(REALSXP,l));
+	{ /* long must be coerced into double .. we use just a cast for each element, bad idea? */
+		int i=0;
+		while (i<l) { REAL(ar)[i]=(double)ap[i]; i++; }
+	}
+UNPROTECT(1);
+(*env)->ReleaseLongArrayElements(env, o, ap, 0);
+profReport("RgetLongArrayCont[%d]:",o);
+return ar;
 }
 
 /** call specified non-static method on an object
@@ -661,6 +744,14 @@ SEXP RcallMethod(SEXP par) {
     profReport("Method \"%s\" returned:",mnam);
     return e;
   }
+  if (*retsig=='C') {
+	  int r=(int) (*env)->CallCharMethodA(env,o,mid,jpar);
+	  PROTECT(e=allocVector(INTSXP, 1));
+	  INTEGER(e)[0]=r;
+	  UNPROTECT(1);
+	  profReport("Method \"%s\" returned:",mnam);
+	  return e;
+  }
   if (*retsig=='J') { 
     jlong r=(*env)->CallLongMethodA(env,o,mid,jpar);
     PROTECT(e=allocVector(REALSXP, 1));
@@ -684,6 +775,14 @@ SEXP RcallMethod(SEXP par) {
     UNPROTECT(1);
     profReport("Method \"%s\" returned:",mnam);
     return e;
+  }
+  if (*retsig=='F') {
+	  double r= (double) (*env)->CallFloatMethodA(env,o,mid,jpar);
+	  PROTECT(e=allocVector(REALSXP, 1));
+	  REAL(e)[0]=r;
+	  UNPROTECT(1);
+	  profReport("Method \"%s\" returned:",mnam);
+	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
     jobject gr;
@@ -796,6 +895,14 @@ SEXP RcallStaticMethod(SEXP par) {
     profReport("Method \"%s\" returned:",mnam);
     return e;
   }
+  if (*retsig=='C') {
+	  int r=(int) (*env)->CallStaticCharMethodA(env,cls,mid,jpar);
+	  PROTECT(e=allocVector(INTSXP, 1));
+	  INTEGER(e)[0]=r;
+	  UNPROTECT(1);
+	  profReport("Method \"%s\" returned:",mnam);
+	  return e;
+  }
   if (*retsig=='Z') {
     jboolean r=(*env)->CallStaticBooleanMethodA(env,cls,mid,jpar);
     PROTECT(e=allocVector(LGLSXP, 1));
@@ -811,6 +918,14 @@ SEXP RcallStaticMethod(SEXP par) {
     UNPROTECT(1);
     profReport("Method \"%s\" returned:",mnam);
     return e;
+  }
+  if (*retsig=='F') {
+	  double r= (double) (*env)->CallStaticFloatMethodA(env,cls,mid,jpar);
+	  PROTECT(e=allocVector(REALSXP, 1));
+	  REAL(e)[0]=r;
+	  UNPROTECT(1);
+	  profReport("Method \"%s\" returned:",mnam);
+	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
     jobject gr;
@@ -870,6 +985,13 @@ SEXP RgetField(SEXP par) {
     UNPROTECT(1);
     return e;
   }
+  if (*retsig=='C') {
+	  int r=(int) (*env)->GetCharField(env,o,mid);
+	  PROTECT(e=allocVector(INTSXP, 1));
+	  INTEGER(e)[0]=r;
+	  UNPROTECT(1);
+	  return e;
+  }
   if (*retsig=='J') {
     jlong r=(*env)->GetLongField(env,o,mid); /* FIXME: jlong=int ?? */
     PROTECT(e=allocVector(REALSXP, 1));
@@ -890,6 +1012,13 @@ SEXP RgetField(SEXP par) {
     REAL(e)[0]=r;
     UNPROTECT(1);
     return e;
+  }
+  if (*retsig=='F') {
+	  double r= (double) (*env)->GetFloatField(env,o,mid);
+	  PROTECT(e=allocVector(REALSXP, 1));
+	  REAL(e)[0]=r;
+	  UNPROTECT(1);
+	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
     jobject gr;
@@ -956,7 +1085,7 @@ SEXP new_jarrayRef(jobject a, char *sig) {
   return R_NilValue;
 }
 
-SEXP RcreateArray(SEXP ar) {
+SEXP RcreateArray(SEXP ar, SEXP cl) {
   JNIEnv *env=getJNIEnv();
   
   if (ar==R_NilValue) return R_NilValue;
@@ -975,15 +1104,19 @@ SEXP RcreateArray(SEXP ar) {
     }
   case REALSXP:
     {
-      if (inherits(ar, "jfloat")) {
-	jfloatArray a = newFloatArrayD(env, REAL(ar), LENGTH(ar));
-	if (!a) return R_NilValue;
-	return new_jarrayRef(a, "[F");
-      } else {
-	jdoubleArray a = newDoubleArray(env, REAL(ar), LENGTH(ar));
-	if (!a) return R_NilValue;
-	return new_jarrayRef(a, "[D");
-      }
+		if (inherits(ar, "jfloat")) {
+			jfloatArray a = newFloatArrayD(env, REAL(ar), LENGTH(ar));
+			if (!a) return R_NilValue;
+			return new_jarrayRef(a, "[F");
+		} else if (inherits(ar, "jlong")){
+			jlongArray a = newLongArrayD(env, REAL(ar), LENGTH(ar));
+			if (!a) return R_NilValue;
+			return new_jarrayRef(a, "[J");
+		} else {
+			jdoubleArray a = newDoubleArray(env, REAL(ar), LENGTH(ar));
+			if (!a) return R_NilValue;
+			return new_jarrayRef(a, "[D");
+		}
     }
   case STRSXP:
     {
@@ -1005,28 +1138,47 @@ SEXP RcreateArray(SEXP ar) {
     }
   case VECSXP:
     {
-      int i=0;
-      while (i<LENGTH(ar)) {
-	SEXP e = VECTOR_ELT(ar, i);
-	if (e!=R_NilValue && !inherits(e, "jobjRef") && !inherits(e, "jarrayRef")) error("Cannot create a Java array from a list that contains anything other than Java object references.");
-	i++;
-      }
-      {
-	jobjectArray a = (*env)->NewObjectArray(env, LENGTH(ar), javaObjectClass, 0);
-	i=0;
-	if (!a) return R_NilValue;
-	while (i<LENGTH(ar)) {
-	  SEXP e = VECTOR_ELT(ar, i);
-	  jobject o = 0;
-	  if (e != R_NilValue) {
-	    SEXP sref=GET_SLOT(e, install("jobj"));
-	    if (sref && TYPEOF(sref)==EXTPTRSXP)
-	      o=(jobject)EXTPTR_PTR(sref);
-	  }	  
-	  (*env)->SetObjectArrayElement(env, a, i, o);
-	  i++;
-	}
-	return new_jarrayRef(a, "[Ljava/lang/Object;");
+		int i=0;
+		jclass ac = javaObjectClass;
+		char *sigName = 0;
+		char buf[256];
+		
+		while (i<LENGTH(ar)) {
+			SEXP e = VECTOR_ELT(ar, i);
+			if (e!=R_NilValue && !inherits(e, "jobjRef") && !inherits(e, "jarrayRef")) error("Cannot create a Java array from a list that contains anything other than Java object references.");
+			i++;
+		}
+		/* optional class name for the objects contained in the array */
+		if (TYPEOF(cl)==STRSXP && LENGTH(cl)>0) {
+			char *cname = CHAR(STRING_ELT(cl, 0));
+			if (cname) {
+				ac = getClass(env, cname);
+				if (!ac)
+					error("Cannot find class %s.", cname);
+				if (strlen(cname)<253) {
+					buf[0] = '['; buf[1] = 'L'; 
+					strcpy(buf+2, cname);
+					strcat(buf,";");
+					sigName = buf;
+				}
+			}
+		}
+		{
+			jobjectArray a = (*env)->NewObjectArray(env, LENGTH(ar), ac, 0);
+			i=0;
+			if (!a) error("Cannot create array of objects.");
+			while (i<LENGTH(ar)) {
+				SEXP e = VECTOR_ELT(ar, i);
+				jobject o = 0;
+				if (e != R_NilValue) {
+					SEXP sref=GET_SLOT(e, install("jobj"));
+					if (sref && TYPEOF(sref)==EXTPTRSXP)
+						o=(jobject)EXTPTR_PTR(sref);
+				}	  
+				(*env)->SetObjectArrayElement(env, a, i, o);
+				i++;
+			}
+			return new_jarrayRef(a, sigName?sigName:"[Ljava/lang/Object;");
       }
     }
   case RAWSXP:
