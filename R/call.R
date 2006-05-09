@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R,v 1.25 2006/04/19 17:14:37 helbigm Exp $
+## $Id: call.R,v 1.26 2006/05/04 13:44:50 urbaneks Exp $
 
 ## define S4 classes
 setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass=NULL))

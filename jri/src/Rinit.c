@@ -16,7 +16,7 @@
 #define CSTACK_DEFNS 1
 #include <Rinterface.h>
 /* unfortunately 2.3.0 doesn't export R_CStackLimit */
-#if (R_VERSION < R_Version(2,4,0))
+#ifndef RIF_HAS_CSTACK
 #if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t)
 typedef unsigned long uintptr_t;
 #endif
@@ -73,12 +73,18 @@ int initR(int argc, char **argv) {
         return -1;
     }
 
+#ifdef RIF_HAS_RSIGHAND
+    R_SignalHandlers=0;
+#endif
     int stat=Rf_initialize_R(argc, argv);
     if (stat<0) {
         printf("Failed to initialize embedded R! (stat=%d)\n",stat);
         return -1;
     };
 
+#ifdef RIF_HAS_RSIGHAND
+    R_SignalHandlers=0;
+#endif
 #if (R_VERSION >= R_Version(2,3,0))
     /* disable stack checking, because threads will thow it off */
     R_CStackLimit = (uintptr_t) -1;
