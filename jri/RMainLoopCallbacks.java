@@ -10,7 +10,7 @@ public interface RMainLoopCallbacks {
 	@param re calling engine
 	@param which identifies whether R enters or exist the busy state */
     public void   rBusy         (Rengine re, int which);
-    /** called when R waits for user input. During the duration of this callback it is safe to re-enter R, and very often it is also the only time. The implementation is free to block on this call until the user hits Enter, but it is a good idea to call @{link #rniIdle} occasionally to allow other event handlers (e.g graphics device UIs) to run.
+    /** called when R waits for user input. During the duration of this callback it is safe to re-enter R, and very often it is also the only time. The implementation is free to block on this call until the user hits Enter, but it is a good idea to call @{link #rniIdle} occasionally to allow other event handlers (e.g graphics device UIs) to run. Implementations should NEVER return immediately even if there is no input - such behavior will result in a fast cycling event loop which makes the use of R pretty much impossible.
 	@param re calling engine
 	@param propmt prompt to be displayed at the console prior to user's input
 	@param addToHistory flags telling the handler whether the input should be considered for adding to history or not

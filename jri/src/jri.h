@@ -8,8 +8,8 @@
 
 /* the viewpoint is from R, i.e. "get" means "Java->R" whereas "put" means "R->Java" */
 
-#define JRI_VERSION 0x0205 /* JRI v0.2-5 */
-#define JRI_API     0x0103 /* API-version 1.3 */
+#define JRI_VERSION 0x0300 /* JRI v0.3-0 */
+#define JRI_API     0x0105 /* API-version 1.5 */
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,10 +37,26 @@ jstring jri_putString(JNIEnv *env, SEXP e, int ix); /* ix=index, 0=1st */
 jarray  jri_putStringArray(JNIEnv *env, SEXP e);
 jarray jri_putSEXPLArray(JNIEnv *env, SEXP e); /* SEXPs are strored as "long"s */
 
+jstring jri_putSymbolName(JNIEnv *env, SEXP e);
+
 void jri_checkExceptions(JNIEnv *env, int describe);
+
+void jri_error(char *fmt, ...);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+
+/*
+   API version changes:
+ -----------------------
+   1.3 (initial public API version)
+ [ 1.4 never publicly released - added put/getenv but was abandoned ]
+   1.5 JRI 0.3-0
+       + rniGetTAG
+       + rniInherits
+       + rniGetSymbolName
+       + rniInstallSymbol
+*/
