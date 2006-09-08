@@ -52,6 +52,11 @@ fi
 RINC=`${R_HOME}/bin/R CMD config --cppflags`
 RLD=`${R_HOME}/bin/R CMD config --ldflags`
 
+if test -z "$RLD"; then
+   AC_MSG_ERROR([*** R was not compiled with --enable-R-shlib!
+*** You must have libR.so or equivalent in order to use JRI])
+fi
+
 AC_SUBST(R_HOME)
 AC_SUBST(R_SHARE_DIR)
 AC_SUBST(R_DOC_DIR)
@@ -92,6 +97,15 @@ AC_PATH_PROGS(JAVA_PROG,java,,${JAVA_PATH})
 AC_PATH_PROGS(JAVAC,javac,,${JAVA_PATH})
 AC_PATH_PROGS(JAVAH,javah,,${JAVA_PATH})
 AC_PATH_PROGS(JAR,jar,,${JAVA_PATH})
+
+have_all_java=yes
+if test -z "$JAVA_PROG"; then have_all_java=no; fi
+if test -z "$JAVAC"; then have_all_java=no; fi
+if test -z "$JAVAH"; then have_all_java=no; fi
+if test -z "$JAR"; then have_all_java=no; fi
+if test ${have_all_java} = no; then
+  AC_MSG_ERROR([*** JDK is incomplete! Please make sure you have a complete JDK. JRE is *not* sufficient.])
+fi
 
 ## this is where our test-class lives
 getsp_cp=tools

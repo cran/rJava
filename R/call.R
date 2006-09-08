@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R,v 1.31 2006/07/24 22:02:09 urbaneks Exp $
+## $Id: call.R,v 1.34 2006/09/07 20:35:51 urbaneks Exp $
 
 ## S4 classes (jobjRef is re-defined in .Frist.lib to contain valid jobj)
 setClass("jobjRef", representation(jobj="externalptr", jclass="character"), prototype=list(jobj=NULL, jclass="java/lang/Object"))
@@ -38,10 +38,15 @@ setClass("jchar", representation("integer"))
   jobj<-obj
   sig<-rawJNIRefSignature
   if (is.null(rawJNIRefSignature)) {
-    if(!inherits(obj,"jarrayRef"))
-      stop("The object is not an array reference (jarrayRef).")
+    if(!inherits(obj,"jarrayRef")) {
+      if (!inherits(obj,"jobjRef"))
+        stop("object is not a Java object reference (jobjRef/jarrayRef).")
+      cl <- .jclass(obj)
+      if (is.null(cl) || substr(cl,1,1) != "[")
+        stop("object is not a Java array.")
+      sig <- cl
+    } else sig <- obj@jsig
     jobj<-obj@jobj
-    sig<-obj@jsig
   }
   if (sig=="[I")
     return(.External("RgetIntArrayCont", jobj, PACKAGE="rJava"))
@@ -275,4 +280,3 @@ setMethod("!=", c(e2="jobjRef"), function(e1,e2) !.jequals(e1,e2))
 .jbyte <- function(x) new("jbyte", as.integer(x))
 # and char (experimental)
 .jchar <- function(x) new("jchar", as.integer(x))
-

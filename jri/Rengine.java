@@ -496,6 +496,11 @@ public class Rengine extends Thread {
     		long x1 = rniPutDoubleArray(cont);
     		rniAssign(sym,x1,0);
     	}
+		if (r.Xt == REXP.XT_STR || r.Xt == REXP.XT_ARRAY_STR) {
+			String[] cont = r.rtype == REXP.XT_STR?new String[]{(String)r.cont}:(String[])r.cont;
+			long x1 = rniPutStringArray(cont);
+			rniAssign(sym,x1,0);
+		}
     }
 
     /** assign values of an array of doubles to a symbol in R (creating an integer vector).<br>

@@ -1398,6 +1398,14 @@ fi
 RINC=`${R_HOME}/bin/R CMD config --cppflags`
 RLD=`${R_HOME}/bin/R CMD config --ldflags`
 
+if test -z "$RLD"; then
+   { { echo "$as_me:$LINENO: error: *** R was not compiled with --enable-R-shlib!
+*** You must have libR.so or equivalent in order to use JRI" >&5
+echo "$as_me: error: *** R was not compiled with --enable-R-shlib!
+*** You must have libR.so or equivalent in order to use JRI" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
 
 
 
@@ -2944,6 +2952,17 @@ fi
   test -n "$JAR" && break
 done
 
+
+have_all_java=yes
+if test -z "$JAVA_PROG"; then have_all_java=no; fi
+if test -z "$JAVAC"; then have_all_java=no; fi
+if test -z "$JAVAH"; then have_all_java=no; fi
+if test -z "$JAR"; then have_all_java=no; fi
+if test ${have_all_java} = no; then
+  { { echo "$as_me:$LINENO: error: *** JDK is incomplete! Please make sure you have a complete JDK. JRE is *not* sufficient." >&5
+echo "$as_me: error: *** JDK is incomplete! Please make sure you have a complete JDK. JRE is *not* sufficient." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 ## this is where our test-class lives
 getsp_cp=tools
