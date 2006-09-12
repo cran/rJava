@@ -57,6 +57,11 @@ class TextConsole implements RMainLoopCallbacks
 
 public class rtest {
     public static void main(String[] args) {
+	// just making sure we have the right version of everything
+	if (!Rengine.versionCheck()) {
+	    System.err.println("** Version mismatch - Java files don't match library version.");
+	    System.exit(1);
+	}
         System.out.println("Creating Rengine (with arguments)");
 		// 1) we pass the arguments from the command line
 		// 2) we won't use the main loop at first, we'll start it later
