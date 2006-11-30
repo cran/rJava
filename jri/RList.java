@@ -18,7 +18,7 @@ import java.util.*;
     parsed according to the structure - in that case "head" and "body" have to be evaluated
     separately according to their meaning in that context.
 
-    @version $Id: RList.java,v 1.3 2006/05/31 15:25:35 urbaneks Exp $
+    @version $Id: RList.java 2478 2006-05-31 15:25:35Z urbaneks $
 */
 public class RList extends Object {
     /** xpressions containing head, body and tag. 
