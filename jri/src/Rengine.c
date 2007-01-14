@@ -3,6 +3,7 @@
 
 #include "jri.h"
 #include "org_rosuda_JRI_Rengine.h"
+#include "rjava.h"
 #include <Rversion.h>
 #include <R_ext/Parse.h>
 
@@ -165,7 +166,8 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniJavaToXref
 (JNIEnv *env, jobject this, jobject o)
 {
   /* this is pretty much from Rglue.c of rJava */
-	return SEXP2L(R_MakeExternalPtr(o, R_NilValue, R_NilValue));
+  jobject go = (*env)->NewGlobalRef(env, o);
+  return SEXP2L(R_MakeExternalPtr(go, R_NilValue, R_NilValue));
 }
 
 JNIEXPORT jstring JNICALL Java_org_rosuda_JRI_Rengine_rniGetString
@@ -318,9 +320,16 @@ JNIEXPORT jboolean JNICALL Java_org_rosuda_JRI_Rengine_rniInherits
 }
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniCons
-(JNIEnv *env, jobject this, jlong head, jlong tail)
+(JNIEnv *env, jobject this, jlong head, jlong tail, jlong tag, jboolean lang)
 {
-    return SEXP2L(CONS((head==0)?R_NilValue:L2SEXP(head), (tail==0)?R_NilValue:L2SEXP(tail)));
+  SEXP l;
+  if (lang)
+    l = LCONS((head==0)?R_NilValue:L2SEXP(head), (tail==0)?R_NilValue:L2SEXP(tail));
+  else
+    l = CONS((head==0)?R_NilValue:L2SEXP(head), (tail==0)?R_NilValue:L2SEXP(tail));
+  
+  if (tag) SET_TAG(l, L2SEXP(tag));
+  return SEXP2L(l);
 }
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniCAR
@@ -458,6 +467,22 @@ JNIEXPORT jstring JNICALL Java_org_rosuda_JRI_Rengine_rniGetEnv
 }
 
 #endif
+
+JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniSetupRJava
+(JNIEnv *env, jobject this, jint _in, jint _out) {
+  RJava_setup(_in, _out);
+  return 0;
+}
+
+JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniRJavaLock
+(JNIEnv *env, jobject this) {
+  return RJava_request_lock();
+}
+
+JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniRJavaUnlock
+(JNIEnv *env, jobject this) {
+  return RJava_clear_lock();
+}
 
 JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniStop
 (JNIEnv *env, jobject this, jint flag) {
