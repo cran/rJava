@@ -452,19 +452,20 @@ jstring callToString(JNIEnv *env, jobject o) {
   cls=(*env)->GetObjectClass(env,o);
   if (!cls) {
     _dbg(rjprintf("callToString: can't determine class of the object\n"));
+    releaseObject(env, cls);
     checkExceptionsX(env, 1);
     return 0;
   }
   mid=(*env)->GetMethodID(env, cls, "toString", "()Ljava/lang/String;");
   if (!mid) {
     _dbg(rjprintf("callToString: toString not found for the object\n"));
+    releaseObject(env, cls);
     checkExceptionsX(env, 1);
     return 0;
   }
   BEGIN_RJAVA_CALL;
   s = (jstring)(*env)->CallObjectMethod(env, o, mid);
   END_RJAVA_CALL;
-  /* do we really need this? */
   releaseObject(env, cls);
   return s;
 }
@@ -602,6 +603,43 @@ SEXP RgetIntArrayCont(SEXP par) {
   UNPROTECT(1);
   (*env)->ReleaseIntArrayElements(env, o, ap, 0);
   _prof(profReport("RgetIntArrayCont[%d]:",o));
+  return ar;
+}
+
+/** get contents of the boolean array object */
+SEXP RgetBoolArrayCont(SEXP par) {
+  SEXP e=CAR(CDR(par));
+  SEXP ar;
+  jarray o;
+  int l;
+  jboolean *ap;
+  JNIEnv *env=getJNIEnv();
+
+  profStart();
+  if (e==R_NilValue) return e;
+  if (TYPEOF(e)==EXTPTRSXP)
+    o=(jobject)EXTPTR_PTR(e);
+  else
+    error_return("RgetBoolArrayCont: invalid object parameter");
+  _dbg(rjprintf("RgetBoolArrayCont: jarray %x\n",o));
+  if (!o) return R_NilValue;
+  l=(int)(*env)->GetArrayLength(env, o);
+  _dbg(rjprintf(" convert bool array of length %d\n",l));
+  if (l<0) return R_NilValue;
+  ap=(jboolean*)(*env)->GetBooleanArrayElements(env, o, 0);
+  if (!ap)
+    error_return("RgetBoolArrayCont: can't fetch array contents");
+  PROTECT(ar=allocVector(LGLSXP,l));
+  { /* jboolean = byte, logical = int, need to convert */
+    int i = 0;
+    while (i < l) {
+      LOGICAL(ar)[i] = ap[i];
+      i++;
+    }
+  }
+  UNPROTECT(1);
+  (*env)->ReleaseBooleanArrayElements(env, o, ap, 0);
+  _prof(profReport("RgetBoolArrayCont[%d]:",o));
   return ar;
 }
 
@@ -813,11 +851,16 @@ SEXP RcallMethod(SEXP par) {
     mid = (*env)->FromReflectedMethod(*env, jobject mobj);
     retsig = getReturnSigFromMethodObject(mobj);
     */
-  } else error_return("RcallMethod: invalid return signature parameter");
+  } else {
+    releaseObject(env, cls);
+    error_return("RcallMethod: invalid return signature parameter");
+  }
     
   e=CAR(p); p=CDR(p);
-  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
+  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1) {
+    releaseObject(env, cls);
     error_return("RcallMethod: invalid method name");
+  }
   mnam=CHAR(STRING_ELT(e,0));
   strcpy(sig,"(");
   Rpar2jvalue(env,p,jpar,sig,32,256,tmpo);
@@ -825,8 +868,10 @@ SEXP RcallMethod(SEXP par) {
   strcat(sig,retsig);
   _dbg(rjprintf(" method \"%s\" signature is %s\n",mnam,sig));
   mid=(*env)->GetMethodID(env,cls,mnam,sig);
-  if (!mid)
+  if (!mid) {
+    releaseObject(env, cls);
     error_return("RcallMethod: method not found");
+  }
 #if (RJ_PROFILE>1)
   profReport("Found CID/MID for %s %s:",mnam,sig);
 #endif
@@ -835,6 +880,7 @@ BEGIN_RJAVA_CALL
     (*env)->CallVoidMethodA(env,o,mid,jpar);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return R_NilValue;
   }
@@ -846,6 +892,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -857,6 +904,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -868,6 +916,7 @@ BEGIN_RJAVA_CALL
 	  UNPROTECT(1);
 END_RJAVA_CALL
           Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
 	  _prof(profReport("Method \"%s\" returned:",mnam));
 	  return e;
   }
@@ -879,6 +928,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -890,6 +940,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -901,6 +952,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -912,6 +964,7 @@ BEGIN_RJAVA_CALL
 	  UNPROTECT(1);
 END_RJAVA_CALL
           Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
 	  _prof(profReport("Method \"%s\" returned:",mnam));
 	  return e;
   }
@@ -921,6 +974,7 @@ BEGIN_RJAVA_CALL
     r=(*env)->CallObjectMethodA(env,o,mid,jpar);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     if (!r) {
       _prof(profReport("Method \"%s\" returned NULL:",mnam));
       return R_NilValue;
@@ -929,6 +983,7 @@ END_RJAVA_CALL
     _prof(profReport("Method \"%s\" returned",mnam));
     return e;
   }
+  releaseObject(env, cls);
   _prof(profReport("Method \"%s\" has an unknown signature, not called:",mnam));
   return R_NilValue;
 }
@@ -989,12 +1044,16 @@ SEXP RcallStaticMethod(SEXP par) {
   if (!cls)
     error_return("RcallStaticMethod: cannot find specified class");
   e=CAR(p); p=CDR(p);
-  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
+  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1) {
+    releaseObject(env, cls);
     error_return("RcallMethod: invalid return signature parameter");
+  }
   retsig=CHAR(STRING_ELT(e,0));
   e=CAR(p); p=CDR(p);
-  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
+  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1) {
+    releaseObject(env, cls);
     error_return("RcallMethod: invalid method name");
+  }
   mnam=CHAR(STRING_ELT(e,0));
   strcpy(sig,"(");
   Rpar2jvalue(env, p, jpar, sig, 32, 256, tmpo);
@@ -1012,6 +1071,7 @@ BEGIN_RJAVA_CALL
     (*env)->CallStaticVoidMethodA(env,cls,mid,jpar);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned (void):",mnam));
     return R_NilValue;
   }
@@ -1023,6 +1083,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -1034,6 +1095,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -1045,6 +1107,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -1056,6 +1119,7 @@ BEGIN_RJAVA_CALL
 	  UNPROTECT(1);
 END_RJAVA_CALL
           Rfreejpars(env, tmpo);
+   releaseObject(env, cls);
 	  _prof(profReport("Method \"%s\" returned:",mnam);)
 	  return e;
   }
@@ -1067,6 +1131,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -1078,6 +1143,7 @@ BEGIN_RJAVA_CALL
     UNPROTECT(1);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
   }
@@ -1089,6 +1155,7 @@ BEGIN_RJAVA_CALL
 	  UNPROTECT(1);
 END_RJAVA_CALL
           Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
 	  _prof(profReport("Method \"%s\" returned:",mnam));
 	  return e;
   }
@@ -1098,9 +1165,11 @@ BEGIN_RJAVA_CALL
     r=(*env)->CallStaticObjectMethodA(env,cls,mid,jpar);
 END_RJAVA_CALL
     Rfreejpars(env, tmpo);
+    releaseObject(env, cls);
     _prof(profReport("Method \"%s\" returned:",mnam));
     return j2SEXP(env, r, 1);
   }
+  releaseObject(env, cls);
   _prof(profReport("Method \"%s\" has an unknown sigrature, not called:",mnam));
   return R_NilValue;
 }
@@ -1135,22 +1204,29 @@ SEXP RgetField(SEXP par) {
   rjprintf("RgetField.class: "); printObject(env, cls);
 #endif
   e=CAR(p); p=CDR(p);
-  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
+  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1) {
+    releaseObject(env, cls);
     error_return("RgetField: invalid return signature parameter");
+  }
   retsig=CHAR(STRING_ELT(e,0));
   e=CAR(p); p=CDR(p);
-  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
+  if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1) {
+    releaseObject(env, cls);
     error_return("RgetField: invalid field name");
+  }
   mnam=CHAR(STRING_ELT(e,0));
   _dbg(rjprintf("field %s signature is %s\n",mnam,retsig));
   mid=(*env)->GetFieldID(env,cls,mnam,retsig);
-  if (!mid)
+  if (!mid) {
+    releaseObject(env, cls);
     error_return("RgetField: field not found");
+  }
   if (*retsig=='I') {
     int r=(*env)->GetIntField(env,o,mid);
     PROTECT(e=allocVector(INTSXP, 1));
     INTEGER(e)[0]=r;
     UNPROTECT(1);
+    releaseObject(env, cls);
     return e;
   }
   if (*retsig=='C') {
@@ -1158,6 +1234,7 @@ SEXP RgetField(SEXP par) {
 	  PROTECT(e=allocVector(INTSXP, 1));
 	  INTEGER(e)[0]=r;
 	  UNPROTECT(1);
+	  releaseObject(env, cls);
 	  return e;
   }
   if (*retsig=='B') {
@@ -1165,6 +1242,7 @@ SEXP RgetField(SEXP par) {
     PROTECT(e=allocVector(INTSXP, 1));
     INTEGER(e)[0]=r;
     UNPROTECT(1);
+    releaseObject(env, cls);
     return e;
   }
   if (*retsig=='J') {
@@ -1172,6 +1250,7 @@ SEXP RgetField(SEXP par) {
     PROTECT(e=allocVector(REALSXP, 1));
     REAL(e)[0]=(double)r;
     UNPROTECT(1);
+    releaseObject(env, cls);
     return e;
   }
   if (*retsig=='Z') {
@@ -1179,6 +1258,7 @@ SEXP RgetField(SEXP par) {
     PROTECT(e=allocVector(LGLSXP, 1));
     LOGICAL(e)[0]=(r)?1:0;
     UNPROTECT(1);
+    releaseObject(env, cls);
     return e;
   }
   if (*retsig=='D') {
@@ -1186,6 +1266,7 @@ SEXP RgetField(SEXP par) {
     PROTECT(e=allocVector(REALSXP, 1));
     REAL(e)[0]=r;
     UNPROTECT(1);
+    releaseObject(env, cls);
     return e;
   }
   if (*retsig=='F') {
@@ -1193,12 +1274,15 @@ SEXP RgetField(SEXP par) {
 	  PROTECT(e=allocVector(REALSXP, 1));
 	  REAL(e)[0]=r;
 	  UNPROTECT(1);
+	  releaseObject(env, cls);
 	  return e;
   }
   if (*retsig=='L' || *retsig=='[') {
     jobject r=(*env)->GetObjectField(env,o,mid);
+    releaseObject(env, cls);
     return j2SEXP(env, r, 1);
   }
+  releaseObject(env, cls);
   return R_NilValue;
 }
 
@@ -1266,7 +1350,7 @@ SEXP new_jarrayRef(jobject a, char *sig) {
   SEXP oo = eval(LCONS(install("new"),LCONS(mkString("jarrayRef"),R_NilValue)), R_GlobalEnv);
   /* .. and set the slots in C .. */
   if (inherits(oo, "jarrayRef")) {
-    SET_SLOT(oo, install("jobj"), j2SEXP(env, a, 0));
+    SET_SLOT(oo, install("jobj"), j2SEXP(env, a, 1));
     SET_SLOT(oo, install("jclass"), mkString(""));
     SET_SLOT(oo, install("jsig"), mkString(sig));
     return oo;
@@ -1366,6 +1450,7 @@ SEXP RcreateArray(SEXP ar, SEXP cl) {
 		}
 		{
 			jobjectArray a = (*env)->NewObjectArray(env, LENGTH(ar), ac, 0);
+			if (ac != javaObjectClass) releaseObject(env, ac);
 			i=0;
 			if (!a) error("Cannot create array of objects.");
 			while (i<LENGTH(ar)) {

@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 209 2007-01-10 18:51:28Z urbanek $
+## $Id: call.R 233 2007-02-21 22:34:14Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -45,6 +45,8 @@
     return(.External("RgetIntArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[J")
     return(.External("RgetLongArrayCont", jobj, PACKAGE="rJava"))
+  else if (sig=="[Z")
+    return(.External("RgetBoolArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[B")
 	return(.External("RgetByteArrayCont", jobj, PACKAGE="rJava"))
   else if (sig=="[D")
@@ -135,6 +137,7 @@
     }
     signature <- cn
   }
+  signature <- gsub('\\.', '/', signature)
   if (inherits(obj, "jarrayRef")) {
     obj@jsig <- signature
     return(obj)
