@@ -82,6 +82,12 @@ JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniSetupR
               argv[argc]=0;
           }
       }
+
+      if (argc==2 && !strcmp(argv[1],"--zero-init")) {/* special case for direct embedding (exp!) */
+	initRinside();
+	return 0;
+      }
+      
       initRes=initR(argc, argv);
       /* we don't release the argv in case R still needs it later (even if it shouldn't), but it's not really a significant leak */
       

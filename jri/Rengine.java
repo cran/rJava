@@ -14,6 +14,8 @@ public class Rengine extends Thread {
         }
     }
 
+    static Thread mainRThread = null;
+
 	/**	API version of the Rengine itself; see also rniGetVersion() for binary version. It's a good idea for the calling program to check the versions of both and abort if they don't match. This should be done using {@link #versionCheck}
 		@return version number as <code>long</code> in the form <code>0xMMmm</code> */
     public static long getVersion() {
@@ -41,6 +43,22 @@ public class Rengine extends Thread {
 	@return current instance of the R engine or <code>null</code> if no R engine was started yet. */
     public static Rengine getMainEngine() { return mainEngine; }
 
+    /* public static Thread getMainRThread() { return mainRThread; } */
+
+    /** returns <code>true</code> if the current thread is the main R thread, <code>false</code> otherwise
+	@since JRI 0.4
+     */
+    public static boolean inMainRThread() {
+	return (mainRThread != null && mainRThread.equals(Thread.currentThread()));
+    }
+
+    boolean standAlone = true;
+
+    /** returns <code>true</code> if this engine was started as a stand-alone Java application or <code>false</code> if this engine was hooked into an existing R instance
+	@since JRI 0.4
+    */
+    public boolean isStandAlone() { return standAlone; }
+
     boolean died, alive, runLoop, loopRunning;
     /** arguments used to initialize R, set by the constructor */
 	String[] args;
@@ -64,8 +82,27 @@ public class Rengine extends Thread {
         this.args=args;
         callback=initialCallbacks;
         mainEngine=this;
+	mainRThread=this;
         start();
         while (!alive && !died) yield();
+    }
+
+    /** create a new engine by hooking into an existing, initialized R instance which is calling this constructor. Currently JRI won't influence this R instance other than disabling stack checks (i.e. no callbacks can be registered etc.). It is *not* the designated constructor and it should be used *only* from withing rJava.
+	@since JRI 0.4
+     */
+    public Rengine() {
+	super();
+	Rsync=new Mutex();
+	died=false;
+	alive=true;
+	runLoop=false;
+	loopRunning=true;
+	standAlone=false;
+	args=new String[] { "--zero-init"};
+	callback=null;
+	mainEngine=this;
+	mainRThread=Thread.currentThread();
+	rniSetupR(args);
     }
 
     /** RNI: setup R with supplied parameters (should <b>not</b> be used directly!).
@@ -74,7 +111,9 @@ public class Rengine extends Thread {
      */
     native int rniSetupR(String[] args);
     
-    /** RNI: setup IPC with RJava. This method is used by rJava to pass the IPC information to the JRI engine for synchronization */
+    /** RNI: setup IPC with RJava. This method is used by rJava to pass the IPC information to the JRI engine for synchronization
+	@since experimental, not in the public API!
+     */
     public native int rniSetupRJava(int _in, int _out);
 
     /** RNI: lock rJava to allow callbacks - this interrupts R event loop until @link{rniRJavaUnlock} is called.

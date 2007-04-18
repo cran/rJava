@@ -9,7 +9,7 @@ package org.rosuda.JRI;
     value, you'll need to use {@link #isTRUE} or {@link #isFALSE} since there is
     no canonical representation of RBool in boolean
 
-    @version $Id: RBool.java 2458 2006-05-29 15:29:19Z helbigm $
+    @version $Id: RBool.java 2720 2007-03-15 17:35:42Z urbanek $
 */
 public class RBool extends Object {
     int val;

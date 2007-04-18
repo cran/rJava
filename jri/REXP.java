@@ -238,7 +238,7 @@ public class REXP {
 			cont = re.rniGetSymbolName(xp);
 			Xt = XT_SYM;
 		} else
-			Xt = 0;
+			Xt = XT_NULL;
 		
 		//System.out.println("new REXP: "+toString());
 	}
@@ -257,7 +257,7 @@ public class REXP {
 
 	/** construct a new, empty (NULL) expression w/o attribute */
 	public REXP() {
-		Xt = 0;
+		Xt = XT_NULL;
 		attr = null;
 		cont = null;
 	}
