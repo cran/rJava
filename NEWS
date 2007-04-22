@@ -1,6 +1,9 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
+0.4-16	2007-04-22
+    o	Work around a change in the most recent MinGW runtime (JRI)
+
 0.4-15	2007-04-17
     o	Use system class loader in .jfindClass
 

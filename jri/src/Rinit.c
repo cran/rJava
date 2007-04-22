@@ -153,6 +153,7 @@ void initRinside() {
 #include <windows.h>
 #include <winreg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "Rversion.h"
 #if R_VERSION < R_Version(2,1,0)
 #include <config.h>
@@ -164,8 +165,8 @@ void initRinside() {
 
 #if (R_VERSION >= R_Version(2,3,0))
 /* according to fixed/config.h Windows has uintptr_t, my windows hasn't */
-#if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t)
-typedef unsigned long uintptr_t;
+#if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t) && !defined(_STDINT_H)
+typedef unsigned uintptr_t;
 #endif
 extern uintptr_t R_CStackLimit; /* C stack limit */
 extern uintptr_t R_CStackStart; /* Initial stack address */
