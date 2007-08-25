@@ -5,8 +5,9 @@ public interface RMainLoopCallbacks {
     /** called when R prints output to the console
 	@param re calling engine
 	@param text text to display in the console
+	@param oType output type (0=regular, 1=error/warning)
     */
-    public void   rWriteConsole (Rengine re, String text);
+    public void   rWriteConsole (Rengine re, String text, int oType);
     /** called when R enters or exist a longer evaluation. It is usually a good idea to signal this state to the user, e.g. by changing the cursor to a "hourglass" and back.
 	@param re calling engine
 	@param which identifies whether R enters (1) or exist (0) the busy state */

@@ -9,7 +9,7 @@ TARGETS=libjvm.dll.a findjava.exe
 all: $(TARGETS)
 
 libjvm.dll.a: jvm.def
-	dlltool --input-def jvm.def --kill-at --dllname jvm.dll --output-lib libjvm.dll.a
+	dlltool --input-def jvm.def --kill-at --as as --dllname jvm.dll --output-lib libjvm.dll.a
 
 # compile findjava.exe from source - no magic here, no special libs necessary
 findjava.o: findjava.c

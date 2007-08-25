@@ -19,7 +19,7 @@ public class Rengine extends Thread {
 	/**	API version of the Rengine itself; see also rniGetVersion() for binary version. It's a good idea for the calling program to check the versions of both and abort if they don't match. This should be done using {@link #versionCheck}
 		@return version number as <code>long</code> in the form <code>0xMMmm</code> */
     public static long getVersion() {
-        return 0x0107;
+        return 0x0108;
     }
 
     /** check API version of this class and the native binary. This is usually a good idea to ensure consistency.
@@ -288,6 +288,12 @@ public class Rengine extends Thread {
 		@return reference to SYMSXP referencing the symbol */
 	public synchronized native long rniInstallSymbol(String sym);
 
+	/** RNI: print.<p><i>Note:</i> May NOT be called inside any WriteConsole callback as it would cause an infinite loop.
+		@since API 1.8, JRI 0.4
+		@param s string to print (as-is)
+		@param oType output type (see R for exact references, but 0 should be regular output and 1 error/warning) */
+	public synchronized native void rniPrint(String s, int oType);
+
 	//--- was API 1.4 but it only caused portability problems, so we got rid of it
     //public static native void rniSetEnv(String key, String val);
     //public static native String rniGetEnv(String key);
@@ -347,9 +353,9 @@ public class Rengine extends Thread {
 
     /** JRI: R_WriteConsole call-back from R
 	@param text text to disply */
-    public void jriWriteConsole(String text)
+    public void jriWriteConsole(String text, int oType)
     {
-        if (callback!=null) callback.rWriteConsole(this, text);
+        if (callback!=null) callback.rWriteConsole(this, text, oType);
     }
 
     /** JRI: R_Busy call-back from R
@@ -371,7 +377,7 @@ public class Rengine extends Thread {
         String s=(callback==null)?null:callback.rReadConsole(this, prompt, addToHistory);
         if (!Rsync.safeLock()) {
             String es="\n>>JRI Warning: jriReadConsole detected a possible deadlock ["+Rsync+"]["+Thread.currentThread()+"]. Proceeding without lock, but this is inherently unsafe.\n";
-            jriWriteConsole(es);
+            jriWriteConsole(es, 1);
             System.err.print(es);
         }
 		if (DEBUG>1)
