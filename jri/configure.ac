@@ -6,10 +6,6 @@ AC_CONFIG_AUX_DIR([tools])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
-if test "$host" != "$build"; then
-   AC_MSG_ERROR([I'm sorry, but cross-compiling is not supported, because we need to run Java code against the target JVM in order to determine paths and flags.])
-fi
-
 # find R home
 : ${R_HOME=`R RHOME`}
 if test -z "${R_HOME}"; then
@@ -17,26 +13,28 @@ if test -z "${R_HOME}"; then
   exit 1
 fi
 # we attempt to use the same compiler as R did
-R_CC=`${R_HOME}/bin/R CMD config CC`
-R_CFLAGS=`${R_HOME}/bin/R CMD config CFLAGS`
+RBIN="${R_HOME}/bin/R"
+R_CC=`"${RBIN}" CMD config CC`
+R_CPP=`"${RBIN}" CMD config CPP`
+R_CFLAGS=`"${RBIN}" CMD config CFLAGS`
 
 
 # find R_SHARE_DIR
-: ${R_SHARE_DIR=`R CMD sh -c 'echo $R_SHARE_DIR'`}
+: ${R_SHARE_DIR=`"${RBIN}" CMD sh -c 'echo $R_SHARE_DIR'`}
 if test -z "${R_SHARE_DIR}"; then
   echo "could not determine R_SHARE_DIR"
   exit 1
 fi
 
 # find R_DOC_DIR
-: ${R_DOC_DIR=`R CMD sh -c 'echo $R_DOC_DIR'`}
+: ${R_DOC_DIR=`"${RBIN}" CMD sh -c 'echo $R_DOC_DIR'`}
 if test -z "${R_DOC_DIR}"; then
   echo "could not determine R_DOC_DIR"
   exit 1
 fi
 
 # find R_INCLUDE_DIR
-: ${R_INCLUDE_DIR=`R CMD sh -c 'echo $R_INCLUDE_DIR'`}
+: ${R_INCLUDE_DIR=`"${RBIN}" CMD sh -c 'echo $R_INCLUDE_DIR'`}
 if test -z "${R_INCLUDE_DIR}"; then
   echo "could not determine R_INCLUDE_DIR"
   exit 1
@@ -45,12 +43,13 @@ fi
 # if user did not specify CC then we use R's settings.
 # if CC was set then user is responsible for CFLAGS as well!
 if test -z "${CC}"; then
-   CC=$R_CC
-   CFLAGS=$R_CFLAGS
+   CC="${R_CC}"
+   CPP="${R_CPP}"
+   CFLAGS="${R_CFLAGS}"
 fi
 
-RINC=`${R_HOME}/bin/R CMD config --cppflags`
-RLD=`${R_HOME}/bin/R CMD config --ldflags`
+RINC=`"${RBIN}" CMD config --cppflags`
+RLD=`"${RBIN}" CMD config --ldflags`
 
 if test -z "$RLD"; then
    AC_MSG_ERROR([R was not compiled with --enable-R-shlib
@@ -84,11 +83,18 @@ AC_DEFUN([RUN_JAVA],
   $1=$acx_java_result
 ])
 
+if test -n "${CONFIGURED}"; then
+## re-map varibles that don't match
+JAVA_PROG="${JAVA}"
+JAVA_INC="${JAVA_CPPFLAGS}"
+JAVA_LD_PATH="${JAVA_LD_LIBRARY_PATH}"
+else
+
 ## find java compiler binaries
 if test -z "${JAVA_HOME}" ; then
   JAVA_PATH=${PATH}
 else
-  JAVA_PATH=${JAVA_HOME}:${JAVA_HOME}/bin:${PATH}
+  JAVA_PATH=${JAVA_HOME}:${JAVA_HOME}/jre/bin:${JAVA_HOME}/bin:${JAVA_HOME}/../bin:${PATH}
 fi
 
 ## if 'java' is not on the PATH or JAVA_HOME, add some guesses as of
@@ -99,6 +105,7 @@ AC_PATH_PROGS(JAVA_PROG,java,,${JAVA_PATH})
 AC_PATH_PROGS(JAVAC,javac,,${JAVA_PATH})
 AC_PATH_PROGS(JAVAH,javah,,${JAVA_PATH})
 AC_PATH_PROGS(JAR,jar,,${JAVA_PATH})
+fi
 
 have_all_java=yes
 if test -z "$JAVA_PROG"; then have_all_java=no; fi
@@ -123,6 +130,8 @@ if test -n "${JAVA_PROG}" ; then
   fi
   acx_jc_result=
 fi
+
+if test -z "${CONFIGURED}"; then
 
 if test ${acx_java_works} = yes; then
   AC_MSG_RESULT([yes])
@@ -186,6 +195,8 @@ AC_CHECK_FILE(${JNI_H}/$mddir/jni_md.h,[JAVA_INC="${JAVA_INC} -I${JNI_H}/$mddir"
 if test ${jac_found_md} = yes; then break; fi
 done
 
+fi
+
 LIBS="${LIBS} ${JAVA_LIBS}"
 CFLAGS="${CFLAGS} ${JAVA_CFLAGS} ${JAVA_INC}"
 
@@ -221,9 +232,9 @@ int main(void) {
         ]])],[AC_MSG_RESULT([ok])],[AC_MSG_ERROR([One or more JNI types differ from the corresponding native type. You may need to use non-standard compiler flags or a different compiler in order to fix this.])],[])
 
 JNIPREFIX=lib
-CPICF=-fPIC
+CPICF=`"${RBIN}" CMD config CPICFLAGS`
 JNISO=.so
-JNILD="-shared ${JAVA_LIBS}"
+JNILD=`"${RBIN}" CMD config SHLIB_LDFLAGS`" ${JAVA_LIBS}"
 
 # we need to adjust a few things according to OS ..
 case "${host_os}" in
@@ -250,7 +261,7 @@ case "${host_os}" in
 esac
 
 origCFLAGS=$CFLAGS
-CFLAGS="${CFLAGS} ${R_CFLAGS} -I${R_INCLUDE_DIR}"
+CFLAGS="${CFLAGS} ${R_CFLAGS} ${RINC}"
 
 AC_MSG_CHECKING([whether Rinterface.h exports R_CStackXXX variables])
 AC_COMPILE_IFELSE([
