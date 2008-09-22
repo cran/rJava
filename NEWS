@@ -1,6 +1,17 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
+0.6-0	2008-09-22
+    o	add support for object cache - see .jcache() - based
+	on Java serialization
+
+0.5-2	(never released, turned into 0.6-0)
+    o	add direct support for raw vectors as method parameters
+	(before .jarray(r) had to be used)
+
+    o	add .jserialize() and .junserialize() functions for
+	Java-serialization (do not confuse with R serialization!)
+
 0.5-1	2007-11-05
     o	fix crashes in Windows when Java calls the vfprintf hook
 
@@ -16,7 +27,7 @@
 	and doesn't need .jsimplify anymore.
 
     o	The implementation of .jfield no longer uses reflection
-	it supports static fileds and .field<-() was added.
+	it supports static fields and .jfield<-() was added.
 
     o	Consolidate interface code for static/non-static calls.
 	It is now possible to call a static method using a non-static

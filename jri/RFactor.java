@@ -11,7 +11,7 @@ import java.util.*;
     attribute. The parser code of REXP converts such constructs directly into
     the RFactor objects and defines an own XT_FACTOR type 
     
-    @version $Id: RFactor.java 2720 2007-03-15 17:35:42Z urbanek $
+    @version $Id: RFactor.java 2909 2008-07-15 15:06:49Z urbanek $
 */    
 public class RFactor extends Object {
     /** IDs (content: Integer) each entry corresponds to a case, ID specifies the category */
@@ -60,8 +60,10 @@ public class RFactor extends Object {
 	@param i ID
 	@return name. may throw exception if out of range */
     public String at(int i) {
-	if (i<0||i>=id.size()) return null;
-	return (String)val.elementAt(((Integer)id.elementAt(i)).intValue());
+	if (i < 0 || i >= id.size()) return null;
+	int j = ((Integer)id.elementAt(i)).intValue();
+	/* due to the index shift NA (INT_MIN) will turn into INT_MAX if base is 1 */
+	return (j < 0 || j > 2147483640) ? null : ((String)val.elementAt(j));
     }
 
     /** returns the number of caes */

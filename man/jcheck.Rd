@@ -10,7 +10,7 @@
   \code{.jcheck} checks the Java VM for any pending exceptions and
   clears them.
 
-  \code{.jthrow} throws a Jva exception.
+  \code{.jthrow} throws a Java exception.
 
   \code{.jgetEx} polls for any pending expections and returns the exception object.
 
@@ -26,8 +26,11 @@
 \arguments{
   \item{silent}{If set to \code{FALSE} then Java is instructed to print
     the exception on \code{stderr}. Note that Windows Rgui doesn't show
-    \code{stderr} so it will not appear there (the printing is done
-    internally in the JVM, so there is no simple way to use R's I/O).}
+    \code{stderr} so it will not appear there (as of rJava 0.5-1 some
+    errors that the JVM prints using the vfprintf callback are passed
+    to R. However, some parts are printed using \code{System.err} in
+    which case the ususal redirection using the \code{System} class
+    can be used by the user).}
   \item{exception}{is either a class name of an exception to create or a
     throwable object reference that is to be thrown.}
   \item{message}{if \code{exception} is a class name then this parameter
@@ -62,16 +65,16 @@
   called by \code{print}) has a side-effect of making a Java call to get
   the string representation of a Java object. This implies that it will
   be impeded by any pending exceptions. Therefore exceptions obtained
-  through \code{.jgetEx} can be stored, but the should not be printed
+  through \code{.jgetEx} can be stored, but should not be printed
   (or otherwise used in Java calls) until after the exception is
-  cleared. In general, all Java calls will fail until the exception is
-  cleared.
+  cleared. In general, all Java calls will fail (possibly silently)
+  until the exception is cleared.
 }
 \seealso{
   \code{\link{.jcall}}, \code{\link{.jnew}}
 }
 \examples{
-\dontrun{
+\donttest{
 # we try to create a bogus object and
 # instruct .jnew to not clear the exception
 # this will raise an exception
