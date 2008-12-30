@@ -9,7 +9,7 @@
 
 /* the viewpoint is from R, i.e. "get" means "Java->R" whereas "put" means "R->Java" */
 
-#define JRI_VERSION 0x0401 /* JRI v0.4-1 */
+#define JRI_VERSION 0x0402 /* JRI v0.4-2 */
 #define JRI_API     0x0108 /* API-version 1.8 */
 
 #ifdef __cplusplus
@@ -46,6 +46,16 @@ jstring jri_putSymbolName(JNIEnv *env, SEXP e);
 void jri_checkExceptions(JNIEnv *env, int describe);
 
 void jri_error(char *fmt, ...);
+
+/* define mkCharUTF8 in a compatible fashion */
+#if R_VERSION < R_Version(2,7,0)
+#define mkCharUTF8(X) mkChar(X)
+#define CHAR_UTF8(X) CHAR(X)
+#else
+#define mkCharUTF8(X) mkCharCE(X, CE_UTF8)
+#define CHAR_UTF8(X) jri_char_utf8(X)
+const char *jri_char_utf8(SEXP);
+#endif
 
 #ifdef __cplusplus
 }

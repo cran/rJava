@@ -197,8 +197,20 @@ done
 
 fi
 
-LIBS="${LIBS} ${JAVA_LIBS}"
-CFLAGS="${CFLAGS} ${JAVA_CFLAGS} ${JAVA_INC}"
+## the configure variables may contain $(JAVA_HOME) which for testing needs to be replaced by the real path
+if test `echo foo | sed -e 's:foo:bar:'` = bar; then
+   JAVA_INC0=`echo ${JAVA_INC} | sed -e 's:$(JAVA_HOME):'${JAVA_HOME}':g'`
+   JAVA_LIBS0=`echo ${JAVA_LIBS} | sed -e 's:$(JAVA_HOME):'${JAVA_HOME}':g'`
+   JAVA_LD_PATH0=`echo ${JAVA_LD_PATH} | sed -e 's:$(JAVA_HOME):'${JAVA_HOME}':g'`
+else
+   AC_MSG_WARN([sed is not working properly - the configuration may fail])
+   JAVA_INC0="${JAVA_INC}"
+   JAVA_LIBS0="${JAVA_LIBS}"
+   JAVA_LD_PATH0="${JAVA_LD_PATH}"
+fi
+
+LIBS="${LIBS} ${JAVA_LIBS0}"
+CFLAGS="${CFLAGS} ${JAVA_CFLAGS} ${JAVA_INC0}"
 
 AC_MSG_CHECKING([whether JNI programs can be compiled])
 AC_LINK_IFELSE([
@@ -210,7 +222,7 @@ int main(void) {
         ],[AC_MSG_RESULT(yes)],
         [AC_MSG_ERROR([Cannot compile a simple JNI program. See config.log for details.])])
 
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${JAVA_LD_PATH}
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${JAVA_LD_PATH0}
 export LD_LIBRARY_PATH
 
 AC_MSG_CHECKING([whether JNI programs can be run])

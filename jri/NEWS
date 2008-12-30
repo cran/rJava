@@ -1,7 +1,11 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
-0.4-1	(under development)
+0.4-2	(under development)
+    o	declare string encoding as UTF-8 and convert incoming strings
+	to UTF-8 if possible (R >= 2.7.0 required).
+
+0.4-1	(part of rJava 0.5-1 and later)
     o	fixed configuration to work with multi-arch builds
 
 0.4-0	2007-08-22 (part of rJava 0.5-0)

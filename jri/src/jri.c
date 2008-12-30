@@ -1,7 +1,10 @@
+#define USE_RINTERNALS 1  /* for efficiency */
+
 #include "jri.h"
 #include <jni.h>
 #include <R.h>
 #include <Rdefines.h>
+#include <Rversion.h>
 #include <R_ext/Parse.h>
 
 #include <stdarg.h>
@@ -59,7 +62,7 @@ static void profReport(char *fmt, ...) {
 #endif
 
 jstring jri_putString(JNIEnv *env, SEXP e, int ix) {
-    return (TYPEOF(e)!=STRSXP || LENGTH(e)<=ix)?0:(*env)->NewStringUTF(env, CHAR(STRING_ELT(e,ix)));
+	return (TYPEOF(e)!=STRSXP || LENGTH(e)<=ix)?0:(*env)->NewStringUTF(env, CHAR_UTF8(STRING_ELT(e,ix)));
 }
 
 jarray jri_putStringArray(JNIEnv *env, SEXP e)
@@ -70,8 +73,8 @@ jarray jri_putStringArray(JNIEnv *env, SEXP e)
         jobjectArray sa=(*env)->NewObjectArray(env, LENGTH(e), (*env)->FindClass(env, "java/lang/String"), 0);
         if (!sa) { jri_error("Unable to create string array."); return 0; }
         while (j<LENGTH(e)) {
-            jobject s=(*env)->NewStringUTF(env, CHAR(STRING_ELT(e,j)));
-            _dbg(rjprintf (" [%d] \"%s\"\n",j,CHAR(STRING_ELT(e,j))));
+            jobject s=(*env)->NewStringUTF(env, CHAR_UTF8(STRING_ELT(e,j)));
+            _dbg(rjprintf (" [%d] \"%s\"\n",j,CHAR_UTF8(STRING_ELT(e,j))));
             (*env)->SetObjectArrayElement(env,sa,j,s);
             j++;
         }
@@ -207,7 +210,7 @@ SEXP jri_getString(JNIEnv *env, jstring s) {
       return R_NilValue;
   }
   PROTECT(r=allocVector(STRSXP,1));
-  SET_STRING_ELT(r, 0, mkChar(c));
+  SET_STRING_ELT(r, 0, mkCharUTF8(c));
   UNPROTECT(1);
   (*env)->ReleaseStringUTFChars(env, s, c);
   _prof(profReport("jri_getString:"));
@@ -235,7 +238,7 @@ jstring jri_putSymbolName(JNIEnv *env, SEXP e) {
 	SEXP pn;
     if (TYPEOF(e)!=SYMSXP) return 0;
 	pn=PRINTNAME(e);
-	return (TYPEOF(pn)!=CHARSXP)?0:(*env)->NewStringUTF(env, CHAR(pn));
+	return (TYPEOF(pn)!=CHARSXP)?0:(*env)->NewStringUTF(env, CHAR_UTF8(pn));
 }
 
 /** calls .toString() of the object and returns the corresponding string java object */
@@ -305,7 +308,7 @@ SEXP jri_getStringArray(JNIEnv *env, jarray o) {
     if (!c)
       SET_STRING_ELT(ar, i, R_NaString);
     else {
-      SET_STRING_ELT(ar, i, mkChar(c));
+      SET_STRING_ELT(ar, i, mkCharUTF8(c));
       (*env)->ReleaseStringUTFChars(env, sobj, c);
     }
     i++;
@@ -445,6 +448,14 @@ SEXP jri_getDoubleArray(JNIEnv *env, jarray o) {
   _prof(profReport("RgetDoubleArrayCont[%d]:",o));
   return ar;
 }
+
+#if R_VERSION >= R_Version(2,7,0)
+/* returns string from a CHARSXP making sure that the result is in UTF-8 */
+const char *jri_char_utf8(SEXP s) {
+        if (Rf_getCharCE(s) == CE_UTF8) return CHAR(s);
+        return Rf_reEnc(CHAR(s), getCharCE(s), CE_UTF8, 1); /* subst. invalid chars: 1=hex, 2=., 3=?, other=skip */
+}
+#endif
 
 void jri_checkExceptions(JNIEnv *env, int describe)
 {
