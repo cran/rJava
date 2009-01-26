@@ -209,7 +209,7 @@ AM_CONDITIONAL(WANT_JRI, [test "x${want_jri}" = xyes])
 
 AC_MSG_CHECKING([whether debugging output should be enabled])
 if test "${want_debug}" = yes; then
-  JAVA_INC="-g -DRJ_DEBUG ${JAVA_INC}"
+  JAVA_CPPFLAGS="-g -DRJ_DEBUG ${JAVA_CPPFLAGS}"
   AC_MSG_RESULT([yes])
 else
   AC_MSG_RESULT([no])

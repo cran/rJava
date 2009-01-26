@@ -1,7 +1,18 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
-0.6-1	(under development)
+0.6-2	2009-01-26
+    o	fix --enable-debug to really enable debug code
+
+    o	improve Windows setup (add only paths if they are not already
+	listed and check thier presence first) and warn if the system
+	suffers from PATH truncation bug (or PATH is truncated in
+	general)
+
+[0.6-branch is created as a stable branch -- see trunk for development]
+
+
+0.6-1	2008-12-23
     o	substitute $(JAVA_HOME) in configuration flags when necessary
 
     o	flag generated strings as UTF-8 and convert incoming strings
@@ -9,9 +20,11 @@
 	This should improve interoperability in non-UTF-8 locales
 	(most prominent example is Windows)
 
+
 0.6-0	2008-09-22
     o	add support for object cache - see .jcache() - based
 	on Java serialization
+
 
 0.5-2	(never released, turned into 0.6-0)
     o	add direct support for raw vectors as method parameters
@@ -20,6 +33,7 @@
     o	add .jserialize() and .junserialize() functions for
 	Java-serialization (do not confuse with R serialization!)
 
+
 0.5-1	2007-11-05
     o	fix crashes in Windows when Java calls the vfprintf hook
 
@@ -27,6 +41,7 @@
 
     o	add support for r.arch system property which allows multi-arch
 	support on platforms that don't have fat binaries (e.g. Linux)
+
 
 0.5-0	2007-08-22
     o	**API CHANGE**
@@ -66,6 +81,8 @@
     o	Added support for [Z in .jevalArray
 
     o	Fix a bug in .jarray missing [ prefix for native type arrays
+
+
 
 0.4 branch has been branched off the trunk, see 0.4-branch for NEWS
 
