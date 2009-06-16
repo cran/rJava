@@ -1,7 +1,24 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
-0.4-2	(under development)
+0.5-0	(under development)
+    o	API 1.9: added rniPreserve, rniRelease, rniParentEnv, rniFindVar,
+	         rniListEnv, rniSpecialObject, rniPrintValue,
+		 rniGetRawArray, rniPutRawArray, rniGetAttrNames methods
+		 added jriLoaded field (boolean)
+
+    o	new REngine-based API (org.rosuda.REngine.JRI.JRIEngine)
+	has been created - this allows the same code to interface
+	JRI or Rserve without re-compilation
+
+    o	proxy references are now preserved until finalized
+
+    o	if jri.ignore.ule=yes property is set, JRI will not abort on
+	failing to load the JRI library (UnsatisfiedLinkException).
+	This can be used by GUIs to display a more meaningful message
+	instead of abort. The jriLoaded flag is false in that case.
+
+0.4-2
     o	declare string encoding as UTF-8 and convert incoming strings
 	to UTF-8 if possible (R >= 2.7.0 required).
 

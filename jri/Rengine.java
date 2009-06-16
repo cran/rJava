@@ -2,24 +2,55 @@ package org.rosuda.JRI;
 
 import java.lang.*;
 
-/** Rengine class is the interface between an instance of R and the Java VM. Due to the fact that R has no threading support, you can run only one instance of R withing a multi-threaded application. There are two ways to use R from Java: individual call and full event loop. See the Rengine {@link #Rengine constructor} for details. <p> <u>Important note:</u> All methods starting with <code>rni</code> (R Native Interface) are low-level native methods that should be avoided if a high-level methods exists. They do NOT attempt any synchronization, so it is the duty of the calling program to ensure that the invocation is safe (see {@link getRsync()} for details). At some point in the future when the high-level API is complete they should become private. However, currently this high-level layer is not complete, so they are available for now.<p>All <code>rni</code> methods use <code>long</code> type to reference <code>SEXP</code>s on R side. Those reference should never be modified or used in arithmetics - the only reason for not using an extra interface class to wrap those references is that <code>rni</code> methods are all <i>native</i> methods and therefore it would be too expensive to handle the unwrapping on the C side.<p><code>jri</code> methods are called internally by R and invoke the corresponding method from the even loop handler. Those methods should usualy not be called directly. */
+/** Rengine class is the interface between an instance of R and the Java VM. Due to the fact that R has no threading support, you can run only one instance of R withing a multi-threaded application. There are two ways to use R from Java: individual call and full event loop. See the Rengine {@link #Rengine constructor} for details. <p> <u>Important note:</u> All methods starting with <code>rni</code> (R Native Interface) are low-level native methods that should be avoided if a high-level methods exists. They do NOT attempt any synchronization, so it is the duty of the calling program to ensure that the invocation is safe (see {@link getRsync()} for details). At some point in the future when the high-level API is complete they should become private. However, currently this high-level layer is not complete, so they are available for now.<p>All <code>rni</code> methods use <code>long</code> type to reference <code>SEXP</code>s on R side. Those reference should never be modified or used in arithmetics - the only reason for not using an extra interface class to wrap those references is that <code>rni</code> methods are all <i>native</i> methods and therefore it would be too expensive to handle the unwrapping on the C side.<p><code>jri</code> methods are called internally by R and invoke the corresponding method from the even loop handler. Those methods should usualy not be called directly.
+
+ <p>Since 0.5 a failure to load the JRI naitve library will not be fatal if <code>jri.ignore.ule=yes</code> system preference is set. Rengine will still not work, but that gives a chance to GUI programs to report the error in a more meaningful way (use {@link #jriLoaded} to check the availability of JRI). 
+ */
 public class Rengine extends Thread {
+	/** this flags is set to <code>true</code> if the native code was successfully loaded. If this flag is <code>false</code> then none of the rni methods are available. Previous 
+	 @since API 1.9, JRI 0.5
+	 */
+	public static boolean jriLoaded;
+
     static {
         try {
             System.loadLibrary("jri");
+			jriLoaded = true;
         } catch (UnsatisfiedLinkError e) {
-			System.err.println("Cannot find JRI native library!\nPlease make sure that the JRI native library is in a directory listed in java.library.path.\n");
-            e.printStackTrace();
-            System.exit(1);
+			jriLoaded = false; // should be implicit, but well ...
+			String iu = System.getProperty("jri.ignore.ule");
+			if (iu == null || !iu.equals("yes")) {
+				System.err.println("Cannot find JRI native library!\nPlease make sure that the JRI native library is in a directory listed in java.library.path.\n");
+				e.printStackTrace();
+				System.exit(1);
+			}
         }
     }
 
     static Thread mainRThread = null;
 
+	// constrants to be used with rniSpecialObject
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_NilValue</code> reference */
+	public static final int SO_NilValue     = 0;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_GlobalEnv</code> reference */
+	public static final int SO_GlobalEnv    = 1;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_EmptyEnv</code> reference */
+	public static final int SO_EmptyEnv     = 2;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_baseEnv</code> reference */
+	public static final int SO_BaseEnv      = 3;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_UnboundValue</code> reference */
+	public static final int SO_UnboundValue = 4;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_MissingArg</code> reference */
+	public static final int SO_MissingArg   = 5;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_NaString</code> reference */
+	public static final int SO_NaString     = 6;
+	/** constant to be used in {@link #rniSpecialObject} to return <code>R_BlankString</code> reference */
+	public static final int SO_BlankString  = 7;
+
 	/**	API version of the Rengine itself; see also rniGetVersion() for binary version. It's a good idea for the calling program to check the versions of both and abort if they don't match. This should be done using {@link #versionCheck}
 		@return version number as <code>long</code> in the form <code>0xMMmm</code> */
     public static long getVersion() {
-        return 0x0108;
+        return 0x0109;
     }
 
     /** check API version of this class and the native binary. This is usually a good idea to ensure consistency.
@@ -178,6 +209,11 @@ public class Rengine extends Thread {
 	@param exp reference to REALSXP
 	@return contents or <code>null</code> if the reference is not REALSXP */
     public synchronized native double[] rniGetDoubleArray(long exp);
+    /** RNI: get the contents of a raw vector
+	 @since API 1.9, JRI 0.5
+	 @param exp reference to RAWSXP
+	 @return contents or <code>null</code> if the reference is not RAWSXP */
+    public synchronized native byte[] rniGetRawArray(long exp);
     /** RNI: get the contents of a generic vector (aka list)
 	@param exp reference to VECSXP
 	@return contents as an array of references or <code>null</code> if the reference is not VECSXP */
@@ -209,6 +245,11 @@ public class Rengine extends Thread {
 	@param a initial contents of the vector
 	@return reference to the resulting REALSXP */
     public synchronized native long rniPutDoubleArray(double[] a);
+    /** RNI: create a raw vector
+	 @since API 1.9, JRI 0.5
+	 @param a initial contents of the vector
+	 @return reference to the resulting RAWSXP */
+    public synchronized native long rniPutRawArray(byte[] a);
     /** RNI: create a generic vector (aka a list)
 	@param exps initial contents of the vector consisiting of an array of references
 	@return reference to the resulting VECSXP */
@@ -219,10 +260,15 @@ public class Rengine extends Thread {
 	@param name name of the attribute
 	@return reference to the attribute or 0 if there is none */
     public synchronized native long rniGetAttr(long exp, String name);
+	/** RNI: get attribute names
+	 @param exp reference to the object whose attributes are requested
+	 @return a list of strings naming all attributes or <code>null</code> if there are none 
+	 @since API 1.9, JRI 0.5 */
+    public synchronized native String[] rniGetAttrNames(long exp);	
     /** RNI: set an attribute
-	@param exp reference to the object whose attribute is to be modified
-	@param name attribute name
-	@param attr reference to the object to be used as teh contents of the attribute */
+	 @param exp reference to the object whose attribute is to be modified
+	 @param name attribute name
+	 @param attr reference to the object to be used as the contents of the attribute */
     public synchronized native void rniSetAttr(long exp, String name, long attr);
 
 	/** RNI: determines whether an R object instance inherits from a specific class (S3 for now)
@@ -294,6 +340,46 @@ public class Rengine extends Thread {
 		@param oType output type (see R for exact references, but 0 should be regular output and 1 error/warning) */
 	public synchronized native void rniPrint(String s, int oType);
 
+	/** RNI: print the value of a given R object (via print or show method) to the console
+		@since API 1.9, JRI 0.5
+		@param exp reference to an R object */
+	public synchronized native void rniPrintValue(long exp);
+
+	/** RNI: preserve object (prevent grabage collection in R) until rniRelease is called.
+		@since API 1.9, JRI 0.5
+		@param exp reference to an R object */
+	public synchronized native void rniPreserve(long exp);
+	/** RNI: release object previously preserved via rniPreserve.<p>Note: releasing an obejct that was not preserved is an error and results in an undefined behavior.
+		@since API 1.9, JRI 0.5
+		@param exp reference to an R object */
+	public synchronized native void rniRelease(long exp);
+	
+	/** RNI: return the parent environment
+		@since API 1.9, JRI 0.5
+		@param exp reference to environment
+		@return parent environment */
+	public synchronized native long rniParentEnv(long exp);
+
+	/** RNI: find variable in an environment
+		@since API 1.9, JRI 0.5
+		@param sym symbol name
+		@param rho reference to environment
+		@return reference to the value or UnboundValue if not found */
+	public synchronized native long rniFindVar(String sym, long rho);
+
+	/** RNI: return the list of variable names of an environment
+		@since API 1.9, JRI 0.5
+		@param exp reference to the environment
+		@param all if set to <code>true</code> then all objects will be shown, otherwise hidden objects will be omitted
+		@return reference to a string vector of names in the environment */
+	public synchronized native long rniListEnv(long exp, boolean all);
+
+	/** RNI: return a special object reference. Note that all such references are constants valid for the entire session and cannot be protected/preserved (they are persistent already).
+		@since API 1.9, JRI 0.5
+		@param which constant referring to a particular special object (see SO_xxx constants)
+		@return reference to a special object or 0 if the kind of object it unknown/unsupported */
+	public synchronized native long rniSpecialObject(int which);
+	
 	//--- was API 1.4 but it only caused portability problems, so we got rid of it
     //public static native void rniSetEnv(String key, String val);
     //public static native String rniGetEnv(String key);

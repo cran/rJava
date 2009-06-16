@@ -1,6 +1,14 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
+0.6-3	2009-06-14
+    o	update to JRI 0.4-3 (adds REngine API, enhanced support for
+	environments and references)
+
+    o	allow signatures longer than 256 bytes
+
+    o	added lib.loc parameter to .jpackage()
+
 0.6-2	2009-01-26
     o	fix --enable-debug to really enable debug code
 

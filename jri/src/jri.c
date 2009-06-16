@@ -110,6 +110,34 @@ jarray jri_putIntArray(JNIEnv *env, SEXP e)
     }
 }
 
+jarray jri_putByteArray(JNIEnv *env, SEXP e)
+{
+    if (TYPEOF(e) != RAWSXP) return 0;
+    _dbg(rjprintf(" raw vector of length %d\n", LENGTH(e)));
+    {
+        unsigned len = LENGTH(e);
+        jbyteArray da = (*env)->NewByteArray(env,len);
+        jbyte *dae;
+
+        if (!da) {
+            jri_error("newByteArray.new(%d) failed",len);
+            return 0;
+        }
+        
+        if (len > 0) {
+            dae = (*env)->GetByteArrayElements(env, da, 0);
+            if (!dae) {
+                (*env)->DeleteLocalRef(env, da);
+                jri_error("newByteArray.GetByteArrayElements failed");
+                return 0;
+            }
+            memcpy(dae, RAW(e), len);
+            (*env)->ReleaseByteArrayElements(env, da, dae, 0);
+        }
+        return da;
+    }
+}
+
 jarray jri_putBoolArrayI(JNIEnv *env, SEXP e)
 {
     if (TYPEOF(e)!=LGLSXP) return 0;
@@ -340,6 +368,30 @@ SEXP jri_getIntArray(JNIEnv *env, jarray o) {
   UNPROTECT(1);
   (*env)->ReleaseIntArrayElements(env, o, ap, 0);
   _prof(profReport("RgetIntArrayCont[%d]:",o));
+  return ar;
+}
+
+/** get contents of the integer array object (int) */
+SEXP jri_getByteArray(JNIEnv *env, jarray o) {
+  SEXP ar;
+  int l;
+  jbyte *ap;
+
+  profStart();
+  _dbg(rjprintf(" jarray %d\n",o));
+  if (!o) return R_NilValue;
+  l = (int)(*env)->GetArrayLength(env, o);
+  _dbg(rjprintf("convert byte array of length %d\n",l));
+  if (l < 1) return R_NilValue;
+  ap = (jbyte*)(*env)->GetByteArrayElements(env, o, 0);
+  if (!ap) {
+      jri_error("jri_getByteArray: can't fetch array contents");
+      return 0;
+  }
+  ar = allocVector(RAWSXP, l);
+  memcpy(RAW(ar), ap, l);
+  (*env)->ReleaseByteArrayElements(env, o, ap, 0);
+  _prof(profReport("RgetByteArrayCont[%d]:",o));
   return ar;
 }
 
