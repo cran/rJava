@@ -13,7 +13,7 @@ public class RVector extends java.util.Vector {
 	public RVector() { super(); }
 	
 	/** replace the names vector - do NOT use directly!
-		@param list of names */
+		@param nam list of names */
 	public void setNames(String[] nam) {
 		names=new Vector(nam.length);
 		int i=0;
@@ -22,13 +22,13 @@ public class RVector extends java.util.Vector {
 	}
 	
 	/** return the vector containg all names
-		@return */
+		@return vector containing all names */
 	public Vector getNames() {
 		return names;
 	}
 
 	/** return contents by name or <code>null</code> if not found
-		@param name
+		@param name key (name)
 		@return contents or <code>null</code> if not found
 		*/
 	public REXP at(String name) {

@@ -1,7 +1,7 @@
  NEWS/ChangeLog for JRI
 --------------------------
 
-0.5-0	(under development)
+0.5-0	2009-08-22
     o	API 1.9: added rniPreserve, rniRelease, rniParentEnv, rniFindVar,
 	         rniListEnv, rniSpecialObject, rniPrintValue,
 		 rniGetRawArray, rniPutRawArray, rniGetAttrNames methods
@@ -10,6 +10,10 @@
     o	new REngine-based API (org.rosuda.REngine.JRI.JRIEngine)
 	has been created - this allows the same code to interface
 	JRI or Rserve without re-compilation
+
+	Note: the JAR files are currently shipped separately from the JRI
+	installation and can be obtained from
+	http://rforge.net/JRI/files/
 
     o	proxy references are now preserved until finalized
 
