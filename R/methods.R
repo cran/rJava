@@ -3,6 +3,7 @@
 ## additional methods ($ and $<-) are defined in reflection.R
 
 # show method
+# FIXME: this should show the class of the object instead of Java-Object
 setMethod("show", c(object="jobjRef"), function(object) {
   if (is.jnull(object)) show("Java-Object<null>") else show(paste("Java-Object{", .jstrVal(object), "}", sep=''))
   invisible(NULL)
@@ -22,4 +23,5 @@ setMethod("!=", c(e1="jobjRef",e2="jobjRef"), function(e1,e2) !.jequals(e1,e2))
 setMethod("!=", c(e1="jobjRef"), function(e1,e2) !.jequals(e1,e2))
 setMethod("!=", c(e2="jobjRef"), function(e1,e2) !.jequals(e1,e2))
 
-# other operators such as <,> could be defined as well, but it will require 'O inherits Comparable' check thus it should be defined in reflection.R
+# other operators such as <,> are defined in comparison.R
+

@@ -1,12 +1,13 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000700 /* rJava v0.7-0 */
+#define RJAVA_VER 0x000800 /* rJava v0.8-0 */
 
 /* important changes between versions:
    3.0  - adds compiler
    2.0
    1.0
+   0.8  - new exception handling using Exception condition
    0.7  - new reflection code, new REngine API (JRI)
    0.6  - adds serialization, (auto-)deserialization and cache
    0.5  - integrates JRI, adds callbacks and class-loader
@@ -19,6 +20,9 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <Rversion.h>
+
+#include <Rdefines.h>
+#include <R_ext/Callbacks.h>
 
 /* flags used in function declarations:
    HIDE - hidden (used internally in rJava only)
@@ -116,19 +120,59 @@ extern int RJava_has_control;
 extern JNIEnv *eenv; /* should NOT be used since not thread-safe; use getJNIEnv instead */
 
 HIDE JNIEnv* getJNIEnv();
+HIDE void ckx(JNIEnv *env);
+HIDE void clx(JNIEnv *env);
+
+HIDE SEXP getStringArrayCont(jarray) ;
+HIDE jarray getSimpleClassNames( jobject, jboolean  ) ;
+HIDE SEXP getSimpleClassNames_asSEXP( jobject, jboolean ) ;
+REPC SEXP RgetSimpleClassNames( SEXP, SEXP ); 
 
 /* in init.c */
 extern JavaVM *jvm;
+extern int rJava_initialized;
 
 extern jclass javaStringClass;
 extern jclass javaObjectClass;
 extern jclass javaClassClass;
 extern jclass javaFieldClass;
+extern jclass rj_RJavaTools_Class ;
 
 extern jmethodID mid_forName;
 extern jmethodID mid_getName;
+extern jmethodID mid_getSimpleName;
+extern jmethodID mid_getSuperclass;
 extern jmethodID mid_getType;
 extern jmethodID mid_getField;
+extern jmethodID mid_rj_getSimpleClassNames;
+
+extern jmethodID mid_RJavaTools_getFieldTypeName;
+
+/* RJavaImport */
+extern jclass rj_RJavaImport_Class ;
+extern jmethodID mid_RJavaImport_getKnownClasses ;
+extern jmethodID mid_RJavaImport_lookup ;
+extern jmethodID mid_RJavaImport_exists ;
+
+HIDE void init_rJava(void);
+
+/* in otables.c */
+// turn this for debugging in otables.c
+// #define LOOKUP_DEBUG
+
+REPC SEXP newRJavaLookupTable(SEXP) ;
+
+HIDE SEXP R_getUnboundValue() ;
+HIDE SEXP rJavaLookupTable_objects(R_ObjectTable *) ;
+HIDE SEXP rJavaLookupTable_assign(const char * const, SEXP, R_ObjectTable * ) ;
+HIDE Rboolean rJavaLookupTable_canCache(const char * const, R_ObjectTable *) ;
+HIDE int rJavaLookupTable_remove(const char * const,  R_ObjectTable *) ;
+HIDE SEXP rJavaLookupTable_get(const char * const, Rboolean *, R_ObjectTable *) ;
+HIDE Rboolean rJavaLookupTable_exists(const char * const, Rboolean *, R_ObjectTable *) ;
+HIDE jobject getImporterReference(R_ObjectTable *) ;
+HIDE SEXP getKnownClasses( R_ObjectTable * ); 
+HIDE SEXP classNameLookup( R_ObjectTable *, const char * const ) ;
+HIDE Rboolean classNameLookupExists(R_ObjectTable *, const char * const ) ;
 
 /* in loader.c */
 extern jclass   clClassLoader;
@@ -140,6 +184,8 @@ HIDE SEXP new_jobjRef(JNIEnv *env, jobject o, const char *klass);
 HIDE jvalue R1par2jvalue(JNIEnv *env, SEXP par, sig_buffer_t *sig, jobject *otr);
 HIDE void init_sigbuf(sig_buffer_t *sb);
 HIDE void done_sigbuf(sig_buffer_t *sb);
+HIDE SEXP getName( JNIEnv *, jobject/*Class*/ ); 
+HIDE SEXP new_jclassName(JNIEnv *, jobject/*Class*/ ) ;
 
 /* in tools.c */
 HIDE jstring callToString(JNIEnv *env, jobject o);
@@ -174,6 +220,10 @@ HIDE void deserializeSEXP(SEXP o);
 
 /* this is a hook for de-serialization */
 #define jverify(X) if (EXTPTR_PROT(X) != R_NilValue) deserializeSEXP(X)
+
+#define IS_JOBJREF(obj) ( inherits(obj, "jobjRef") || inherits(obj, "jarrayRef") || inherits(obj,"jrectRef") )
+#define IS_JARRAYREF(obj) ( inherits(obj, "jobjRef") || inherits(obj, "jarrayRef") || inherits(obj, "jrectRef") )
+#define IS_JRECTREF(obj) ( inherits(obj,"jrectRef") )
 
 #endif
 

@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 354 2009-06-18 17:31:53Z urbanek $
+## $Id: jinit.R 495 2009-10-20 08:10:59Z romain $
 
 .check.JVM <- function() 
     .Call("RJava_checkJVM", PACKAGE="rJava")
@@ -119,7 +119,7 @@
 
   if (is.jnull(rjcl))
     rjcl <- .jnew("RJavaClassLoader", .rJava.base.path,
-                  file.path(.rJava.base.path, lib), check=FALSE)
+                  file.path(.rJava.base.path, lib), check=FALSE )
 
   if (!is.jnull(rjcl)) {
     ## init class loader
@@ -147,11 +147,22 @@
       pe[[x]] <- .env[[x]]
       lockBinding(x, pe)
     }
-  }   
+  }
+  
+  # FIXME: is this the best place or should this be done 
+  #        internally right after the RJavaClassLoader is instanciated
+  # init the cached RJavaTools class in the jni side
+  .Call( "initRJavaTools", PACKAGE = "rJava" ) 
+  
+  # not yet
+  # import( c( "java.lang", "java.util") )
   
   invisible(xr)
 }
 
+# FIXME: this is not always true: osgi, eclipse etc use a different
+#        class loader strategy, we should add some sort of hook to let people
+#        define how they want this to be done
 .jmergeClassPath <- function(cp) {
   ccp <- .jcall("java/lang/System","S","getProperty","java.class.path")
   ccpc <- strsplit(ccp, .Platform$path.sep)[[1]]
