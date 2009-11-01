@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 505 2009-10-27 20:42:06Z urbanek $
+## $Id: call.R 513 2009-10-30 22:33:35Z urbanek $
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
@@ -78,7 +78,7 @@
 
 .jcall <- function(obj, returnSig="V", method, ..., evalArray=TRUE, 
 	evalString=TRUE, check=TRUE, interface="RcallMethod", 
-	use.true.class = TRUE) {
+	use.true.class = FALSE) {
   if (check) .jcheck()
   r<-NULL
   # S is a shortcut for Ljava/lang/String;
