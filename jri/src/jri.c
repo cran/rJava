@@ -287,6 +287,9 @@ jstring jri_callToString(JNIEnv *env, jobject o) {
   return (jstring)(*env)->CallObjectMethod(env, o, mid);  
 }
 
+/* FIXME: this should never be used as 64-bit platforms can't stuff a
+   pointer in any R type (save for raw which must be interpreted
+   accordingly) */
 SEXP jri_getObjectArray(JNIEnv *env, jarray o) {
   SEXP ar;
   int l,i;
@@ -299,8 +302,9 @@ SEXP jri_getObjectArray(JNIEnv *env, jarray o) {
   if (l<1) return R_NilValue;
   PROTECT(ar=allocVector(INTSXP,l));
   i=0;
-  while (i<l) {
-    INTEGER(ar)[i]=(int)(*env)->GetObjectArrayElement(env, o, i);
+  while (i < l) { /* to avoid warnings we cast ptr -> ljong -> int
+		     with loss of precision */
+    INTEGER(ar)[i] = (int)(jlong)(*env)->GetObjectArrayElement(env, o, i);
     i++;
   }
   UNPROTECT(1);

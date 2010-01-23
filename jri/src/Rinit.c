@@ -1,4 +1,3 @@
-#include <Rversion.h>
 #include <R.h>
 #include <Rinternals.h>
 #include "Rinit.h"
@@ -11,60 +10,11 @@
 
 #ifndef Win32
 
-/* more recent R versions have Rinterface */
-#if (R_VERSION >= R_Version(2,3,0))
 #define R_INTERFACE_PTRS 1
 #define CSTACK_DEFNS 1
 #include <Rinterface.h>
-/* unfortunately 2.3.0 doesn't export R_CStackLimit */
-#ifndef RIF_HAS_CSTACK
-#if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t)
-typedef unsigned long uintptr_t;
-#endif
-extern uintptr_t R_CStackLimit; /* C stack limit */
-extern uintptr_t R_CStackStart; /* Initial stack address */
-#endif
 /* and SaveAction is not officially exported */
 extern SA_TYPE SaveAction;
-#else
-/*---------------------------------------------------- old R init --*/
-/* for older version we need to copy/paste it */
-/* from Defn.h */
-extern Rboolean R_Interactive;   /* TRUE during interactive use*/
-
-extern FILE*    R_Consolefile;   /* Console output file */
-extern FILE*    R_Outputfile;   /* Output file */
-extern char*    R_TempDir;   /* Name of per-session dir */
-
-typedef enum {
-    SA_NORESTORE,/* = 0 */
-    SA_RESTORE,
-    SA_DEFAULT,/* was === SA_RESTORE */
-    SA_NOSAVE,
-    SA_SAVE,
-    SA_SAVEASK,
-    SA_SUICIDE
-} SA_TYPE;
-
-extern SA_TYPE SaveAction;
-
-/* from src/unix/devUI.h */
-
-extern void (*ptr_R_Suicide)(char *);
-extern void (*ptr_R_ShowMessage)();
-extern int  (*ptr_R_ReadConsole)(char *, unsigned char *, int, int);
-extern void (*ptr_R_WriteConsole)(char *, int);
-extern void (*ptr_R_ResetConsole)();
-extern void (*ptr_R_FlushConsole)();
-extern void (*ptr_R_ClearerrConsole)();
-extern void (*ptr_R_Busy)(int);
-/* extern void (*ptr_R_CleanUp)(SA_TYPE, int, int); */
-extern int  (*ptr_R_ShowFiles)(int, char **, char **, char *, Rboolean, char *);
-extern int  (*ptr_R_ChooseFile)(int, char *, int);
-extern void (*ptr_R_loadhistory)(SEXP, SEXP, SEXP, SEXP);
-extern void (*ptr_R_savehistory)(SEXP, SEXP, SEXP, SEXP);
-#endif
-/*-------------------------------------- end of old definitions ----*/
 
 
 int initR(int argc, char **argv) {
@@ -95,10 +45,8 @@ int initR(int argc, char **argv) {
 #ifdef RIF_HAS_RSIGHAND
     R_SignalHandlers=0;
 #endif
-#if (R_VERSION >= R_Version(2,3,0))
     /* disable stack checking, because threads will thow it off */
     R_CStackLimit = (uintptr_t) -1;
-#endif
 
 #ifdef JGR_DEBUG
     printf("R primary initialization done. Setting up parameters.\n");
@@ -113,12 +61,8 @@ int initR(int argc, char **argv) {
     /* ptr_R_CleanUp = Re_CleanUp; */
     ptr_R_ShowMessage = Re_ShowMessage;
     ptr_R_ReadConsole = Re_ReadConsole;
-#if (R_VERSION >=R_Version(2,5,0))
     ptr_R_WriteConsole = NULL;
     ptr_R_WriteConsoleEx = Re_WriteConsoleEx;
-#else
-    ptr_R_WriteConsole = Re_WriteConsole;
-#endif
     ptr_R_ResetConsole = Re_ResetConsole;
     ptr_R_FlushConsole = Re_FlushConsole;
     ptr_R_ClearerrConsole = Re_ClearerrConsole;
@@ -142,10 +86,8 @@ int initR(int argc, char **argv) {
 }
 
 void initRinside() {
-#if (R_VERSION >= R_Version(2,3,0))
     /* disable stack checking, because threads will thow it off */
     R_CStackLimit = (uintptr_t) -1;
-#endif
 }
 
 #else
@@ -159,23 +101,16 @@ void initRinside() {
 #include <winreg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Rversion.h"
-#if R_VERSION < R_Version(2,1,0)
-#include <config.h>
-#include "Startup.h"
-#else
-/* since 2.1.0 we don't need R sources */
 #include "R_ext/RStartup.h"
-#endif
 
-#if (R_VERSION >= R_Version(2,3,0))
+#ifndef WIN64
 /* according to fixed/config.h Windows has uintptr_t, my windows hasn't */
 #if !defined(HAVE_UINTPTR_T) && !defined(uintptr_t) && !defined(_STDINT_H)
 typedef unsigned uintptr_t;
 #endif
+#endif
 extern __declspec(dllimport) uintptr_t R_CStackLimit; /* C stack limit */
 extern __declspec(dllimport) uintptr_t R_CStackStart; /* Initial stack address */
-#endif
 
 /* for signal-handling code */
 /* #include "psignal.h" - it's not included, so just get SIGBREAK */
@@ -246,8 +181,7 @@ int initR(int argc, char **argv)
     Rstart Rp = &rp;
     char *p;
     char rhb[MAX_PATH+10];
-    LONG h;
-    DWORD t,s=MAX_PATH;
+    DWORD t, s = MAX_PATH;
     HKEY k;
     int cvl;
 
@@ -265,8 +199,10 @@ int initR(int argc, char **argv)
     if(getenv("R_HOME")) {
 	strcpy(RHome, getenv("R_HOME"));
     } else { /* fetch R_HOME from the registry */
-	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,"SOFTWARE\\R-core\\R",0,KEY_QUERY_VALUE,&k)!=ERROR_SUCCESS ||
-	    RegQueryValueEx(k,"InstallPath",0,&t,RHome,&s)!=ERROR_SUCCESS) {
+      if ((RegOpenKeyEx(HKEY_LOCAL_MACHINE,"SOFTWARE\\R-core\\R",0,KEY_QUERY_VALUE,&k)!=ERROR_SUCCESS ||
+	   RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS) &&
+	  (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\R-core\\R",0,KEY_QUERY_VALUE,&k)!=ERROR_SUCCESS ||
+           RegQueryValueEx(k, "InstallPath", 0, &t, (LPBYTE) RHome, &s) != ERROR_SUCCESS)) {
 	    fprintf(stderr, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n");
 	    MessageBox(0, "R_HOME must be set or R properly installed (\\Software\\R-core\\R\\InstallPath registry entry must exist).\n", "Can't find R home", MB_OK|MB_ICONERROR);
 	    return -2;
@@ -292,35 +228,20 @@ int initR(int argc, char **argv)
     if (*p == '/' || *p == '\\') *p = '\0';
     Rp->home = RUser;
     Rp->ReadConsole = Re_ReadConsole;
-#if R_VERSION >= R_Version(2,5,0)
     Rp->WriteConsole = NULL;
     Rp->WriteConsoleEx = Re_WriteConsoleEx;
-#else
-    Rp->WriteConsole = Re_WriteConsole;
-#endif
 
-#if R_VERSION >= R_Version(2,1,0)
     Rp->Busy = Re_Busy;
     Rp->ShowMessage = Re_ShowMessage;
     Rp->YesNoCancel = myYesNoCancel;
-#else
-    Rp->busy = Re_Busy;
-    Rp->message = Re_ShowMessage;
-    Rp->yesnocancel = myYesNoCancel;
-#endif   
     Rp->CallBack = myCallBack;
-	Rp->CharacterMode = LinkDLL;
+    Rp->CharacterMode = LinkDLL;
 
     Rp->R_Quiet = FALSE;
     Rp->R_Interactive = TRUE;
     Rp->RestoreAction = SA_RESTORE;
     Rp->SaveAction = SA_SAVEASK;
-#if R_VERSION < R_Version(2,0,0)
-    Rp->CommandLineArgs = argv;
-    Rp->NumCommandLineArgs = argc;
-#else
     R_set_command_line_arguments(argc, argv);
-#endif
 
     /* Rp->nsize = 300000;
     Rp->vsize = 6e6; */
@@ -328,11 +249,9 @@ int initR(int argc, char **argv)
     R_SizeFromEnv(Rp);
     R_SetParams(Rp);
 
-#if (R_VERSION >= R_Version(2,3,0))
     /* R_SetParams implicitly calls R_SetWin32 which sets the
        stack start/limit which we need to override */
     R_CStackLimit = (uintptr_t) -1;
-#endif
 
     FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 
@@ -344,10 +263,8 @@ int initR(int argc, char **argv)
 }
 
 void initRinside() {
-#if (R_VERSION >= R_Version(2,3,0))
     /* disable stack checking, because threads will thow it off */
     R_CStackLimit = (uintptr_t) -1;
-#endif
 }
 
 #endif
