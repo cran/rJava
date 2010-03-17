@@ -4,7 +4,7 @@ export( "%instanceof%" )
 
 export( clone )
 S3method( clone, default ) 
-export(is.jnull, .r2j, .rJava.base.path)
+export(is.jnull, .r2j, .rJava.base.path, toJava)
 exportClasses(jobjRef, jarrayRef, jrectRef, jfloat, jlong, jbyte, jchar, jclassName)
 exportMethods(show, "$", "$<-", 
 	"==", "!=", "<", ">", "<=", ">=", 
@@ -26,6 +26,9 @@ S3method(with, jclassName)
 S3method(within, jobjRef)
 S3method(within, jarrayRef)
 S3method(within, jclassName)
+
+# within requires that with.jobjRef is visible outside
+export(with.jobjRef)
 
 if( exists( ".DollarNames", asNamespace("utils") ) ) importFrom( utils, .DollarNames )
 S3method(.DollarNames, jobjRef)
