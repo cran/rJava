@@ -62,7 +62,7 @@ JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniSetupR
               int i=0;
               argv=(char**) malloc(sizeof(char*)*(len+2));
               argv[0]=fallbackArgv[0];
-              while (i<len) {
+              while (i < len) {
                   jobject o=(*env)->GetObjectArrayElement(env, a, i);
                   i++;
                   if (o) {
@@ -71,8 +71,7 @@ JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniSetupR
                       if (!c)
                           argv[i]="";
                       else {
-                          argv[i]=(char*) malloc(strlen(c)+1);
-                          strcpy(argv[i],c);
+			  argv[i] = strdup(c);
                           (*env)->ReleaseStringUTFChars(env, o, c);
                       }
                   } else

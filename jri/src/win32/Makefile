@@ -1,7 +1,7 @@
 # helper tools and libs for building and running rJava for Windows
 # Author: Simon Urbanek
 
-include $(R_HOME)/etc/Makeconf
+include $(R_HOME)/etc$(R_ARCH)/Makeconf
 
 TARGETS=libjvm.dll.a findjava.exe
 

@@ -38,7 +38,13 @@ if [ -e jri/configure.win ]; then
     if [ $BR = 0 ]; then
 	echo "=== JRI built ==="
 	mkdir -p inst/jri
-	cp -r jri/src/jri.dll jri/src/JRI.jar jri/examples inst/jri/
+	# also copy into R_ARCH is present to avoid overwriting different archs
+	if [ -n "${R_ARCH}" ]; then
+	    mkdir -p inst/jri${R_ARCH}
+	    cp jri/src/jri.dll inst/jri${R_ARCH}/
+	fi
+	# yet still install into JRI in case users get confused
+	cp -r jri/run.bat jri/src/jri.dll jri/src/JRI.jar jri/examples inst/jri/
     else
 	echo "**** WARNING: JRI could NOT be built" >&2
 	if [ -z "$INGORE" ]; then
