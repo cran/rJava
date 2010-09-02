@@ -244,6 +244,11 @@ public class RJavaClassLoader extends URLClassLoader {
 			libMap.put("jri", jri);
 			if (verbose) System.out.println(" - registered JRI: "+jri);
 		}
+
+		/* if we are the primary loader, make us the context loader so
+		   projects that rely on the context loader pick us */
+		if (primaryLoader == this)
+			Thread.currentThread().setContextClassLoader(this);
 	}
 	// }}}
 
@@ -410,7 +415,7 @@ public class RJavaClassLoader extends URLClassLoader {
 		if (useSystem) {
 			try {
 				addURL(f.toURL());
-				//return; // we need to add it anyway
+				//return; // we need to add it anyway so it appears in .jclassPath()
 			} catch (Exception ufe) {
 			}
 		}
@@ -423,6 +428,9 @@ public class RJavaClassLoader extends URLClassLoader {
 		}
 		
 		if (g != null && !classPath.contains(g)) {
+			// this is the real meat - add it to our internal list
+			classPath.add(g);
+			// this is just cosmetics - it doesn't really have any meaning
 			System.setProperty("java.class.path",
 					System.getProperty("java.class.path")+File.pathSeparator+g.getPath());
 		}
