@@ -6,6 +6,9 @@
 #include "rjava.h"
 #include <Rversion.h>
 #include <R_ext/Parse.h>
+#ifndef WIN32 /* this is for interrupt handing since GD uses R_interrupts_pending */
+#include <R_ext/GraphicsEngine.h>
+#endif
 
 /* the # of arguments to R_ParseVector changed since R 2.5.0 */
 #if R_VERSION < R_Version(2,5,0)
@@ -635,8 +638,13 @@ JNIEXPORT jint JNICALL Java_org_rosuda_JRI_Rengine_rniStop
 #ifdef Win32
     UserBreak=1;
 #else
-    /* not really a perfect solution ... need to clarify what's the best ... */
-    kill(getpid(), SIGINT);
+    /* there are three choices now:
+       0 = cooperative (requires external interrupt of ReadConsole!)
+       1 = SIGINT for compatibility with old rniStop()
+       2 = R's onintr but that one works *only* if used on the R thread (which renders is essentially useless unless used in some synchronous interrupt handler). */
+    if (flag == 0) R_interrupts_pending = 1;
+    else if (flag == 1)  kill(getpid(), SIGINT);
+    else Rf_onintr();
 #endif
     return 0;
 }
