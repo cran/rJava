@@ -8,6 +8,10 @@
 #include <R_ext/Parse.h>
 #ifndef WIN32 /* this is for interrupt handing since GD uses R_interrupts_pending */
 #include <R_ext/GraphicsEngine.h>
+/* Before R 2.7.0 R_interrupts_pending was not included, though */
+#if R_VERSION < R_Version(2,7,0)
+LibExtern int R_interrupts_pending;
+#endif
 #endif
 
 /* the # of arguments to R_ParseVector changed since R 2.5.0 */
@@ -27,7 +31,9 @@
 #ifdef _MSC_VER
 __declspec(dllimport) int UserBreak;
 #else
+#ifndef WIN64
 #define UserBreak     (*_imp__UserBreak)
+#endif
 extern int UserBreak;
 #endif
 #else
