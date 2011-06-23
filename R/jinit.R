@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 495 2009-10-20 08:10:59Z romain $
+## $Id: jinit.R 564 2011-03-28 18:54:52Z urbanek $
 
 .check.JVM <- function() 
     .Call("RJava_checkJVM", PACKAGE="rJava")
@@ -44,6 +44,10 @@
   
   # set rJava/java/boot for boostrap (so we can get RJavaClassLoader)
   boot.classpath <- file.path(.rJava.base.path,"java","boot")
+
+  # if running in a sub-arch, append -Dr.arch in case someone gets the idea to start JRI
+  if (is.character(.Platform$r_arch) && nzchar(.Platform$r_arch) && length(grep("-Dr.arch", parameters, fixed=TRUE)) == 0L)
+    parameters <- c(paste("-Dr.arch=/", .Platform$r_arch, sep=''), as.character(parameters))
 
   #cat(">> init CLASSPATH =",classpath,"\n")
   #cat(">> boot class path: ", boot.classpath,"\n")
