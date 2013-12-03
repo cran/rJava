@@ -52,6 +52,12 @@ AC_ARG_ENABLE([jri],
 [want_jri="${enableval}"],
 [want_jri=auto])
 
+## enable headless
+AC_ARG_ENABLE([headless],
+[AC_HELP_STRING([--enable-headless],
+		[enable initialization in headless mode. @<:@auto@:>@])],
+[want_headless="${enableval}"],
+[want_headless=auto])
 
 ## enable debug flags
 AC_ARG_ENABLE([debug],
@@ -91,13 +97,13 @@ AC_HEADER_TIME
 
 AC_CHECKING([whether ${CC} supports static inline])
 can_inline=no
-AC_COMPILE_IFELSE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 static inline int foo(int a, int b);
 static f = 1;
 static inline int foo(int a, int b) { return a+b; }
 int main(void) {
     return foo(f,-1);
-}],can_inline=yes)
+}])],can_inline=yes)
 AC_MSG_RESULT(${can_inline})
 if test "${can_inline}" = yes; then
   AC_DEFINE(HAVE_STATIC_INLINE, 1, [Define to 1 when static inline works])
@@ -194,15 +200,31 @@ LIBS="${LIBS} ${JAVA_LIBS0}"
 CFLAGS="${CFLAGS} ${JAVA_CPPFLAGS0}"
 LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${JAVA_LD_LIBRARY_PATH0}"
 
+AC_MSG_CHECKING([whether Java run-time works])
+if "$JAVA" getsp; then
+   AC_MSG_RESULT(yes)
+else
+   AC_MSG_RESULT(no)
+   AC_MSG_ERROR([Java interpreter '$JAVA' does not work])
+fi
+
+has_xrs=no
+AC_MSG_CHECKING([whether -Xrs is supported])
+if "$JAVA" -Xrs getsp; then
+   has_xrs=yes
+   AC_DEFINE(HAVE_XRS, 1, [Set if the Java parameter -Xrs is supported])
+fi
+AC_MSG_RESULT(${has_xrs})
+
 AC_MSG_CHECKING([whether JNI programs can be compiled])
-AC_LINK_IFELSE([
+AC_LINK_IFELSE([AC_LANG_SOURCE([
 #include <jni.h>
 int main(void) {
     jobject o;
     JNI_CreateJavaVM(0, 0, 0);
     return 0;
 }
-	],[AC_MSG_RESULT(yes)],
+	])],[AC_MSG_RESULT(yes)],
 	[AC_MSG_ERROR([Cannot compile a simple JNI program. See config.log for details.
 
 Make sure you have Java Development Kit installed and correctly registered in R.
@@ -292,6 +314,19 @@ if test "${want_jni_cache}" = yes; then
   AC_DEFINE(JNI_CACHE, 1, [Set if caching JNI environment is enabled.])
 else
   AC_MSG_RESULT([no])
+fi
+
+AC_MSG_CHECKING([whether headless init is enabled])
+if test "${want_headless}" = auto; then
+  want_headless=no
+  ## only Darwin defaults to headless
+  if test x`uname -s 2>/dev/null` = xDarwin; then
+    want_headless=yes
+  fi
+fi
+AC_MSG_RESULT([${want_headless}])
+if test "${want_headless}" = yes; then
+  AC_DEFINE(USE_HEADLESS_INIT, 1, [Set if headless mode is to be used when starting the JVM])
 fi
 
 AC_MSG_CHECKING([whether JRI is requested])

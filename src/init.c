@@ -6,6 +6,9 @@
 /* global variables */
 JavaVM *jvm;
 
+/* this will be set when Java tries to exit() but we carry on */
+int java_is_dead = 0;
+
 /* cached, global objects */
 
 jclass javaStringClass;
@@ -73,11 +76,13 @@ static int JNICALL vfprintf_hook(FILE *f, const char *fmt, va_list ap) {
 }
 
 static void JNICALL exit_hook(int status) {
-  REprintf("\nJava requested System.exit(%d), closing R.\n", status);
-  /* FIXME: we could do something smart here such as running a call-back
-     into R ... jump into R event loop ... at any rate we cannot return,
-     but we don't want to kill R ... */
-  exit(status);
+    /* REprintf("\nJava requested System.exit(%d), trying to raise R error - this may crash if Java is in a bad state.\n", status); */
+    java_is_dead = 1;
+    Rf_error("Java called System.exit(%d) requesting R to quit - trying to recover", status);
+    /* FIXME: we could do something smart here such as running a call-back
+       into R ... jump into R event loop ... at any rate we cannot return,
+       but we don't want to kill R ... */
+    exit(status);
 }
 
 /* in reality WIN64 implies WIN32 but to make sure ... */
@@ -267,13 +272,40 @@ REP SEXP RinitJVM(SEXP par)
 
   e = CADDR(par);
   if (TYPEOF(e)==STRSXP && LENGTH(e)>0) {
-	  int len = LENGTH(e);
-	  jvm_optv=(char**)malloc(sizeof(char*)*len);
-	  while (jvm_opts < len) {
-		  jvm_optv[jvm_opts] = strdup(CHAR(STRING_ELT(e, jvm_opts)));
-		  jvm_opts++;
-	  }
+      int len = LENGTH(e), add_xrs = 1;
+      jvm_optv = (char**)malloc(sizeof(char*) * (len + 3));
+      if (!jvm_optv) Rf_error("Cannot allocate options buffer - out of memory");
+#ifdef USE_HEADLESS_INIT
+      /* prepend headless so the user can still override it */
+      jvm_optv[jvm_opts++] = "-Djava.awt.headless=true";
+#endif
+      while (jvm_opts < len) {
+	  jvm_optv[jvm_opts] = strdup(CHAR(STRING_ELT(e, jvm_opts)));
+#ifdef HAVE_XRS
+	  /* check if Xrs is already used */
+	  if (!strcmp(jvm_optv[jvm_opts], "-Xrs"))
+	      add_xrs = 0;
+#endif
+	  jvm_opts++;
+      }
+#ifdef HAVE_XRS
+      if (add_xrs)
+	  jvm_optv[jvm_opts++] = "-Xrs";
+#endif
+  } else {
+#ifdef USE_HEADLESS_INIT
+      jvm_optv = (char**)malloc(sizeof(char*) * 3);
+      if (!jvm_optv) Rf_error("Cannot allocate options buffer - out of memory");
+      jvm_optv[jvm_opts++] = "-Djava.awt.headless=true";
+#endif
+#ifdef HAVE_XRS
+      if (!jvm_optv) jvm_optv = (char**)malloc(sizeof(char*) * 2);
+      if (!jvm_optv) Rf_error("Cannot allocate options buffer - out of memory");
+      jvm_optv[jvm_opts++] = "-Xrs";
+#endif
   }
+  if (jvm_opts)
+      jvm_optv[jvm_opts] = 0;
   
   r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);
   if (r) {
