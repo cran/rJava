@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x000904 /* rJava v0.9-4 */
+#define RJAVA_VER 0x000905 /* rJava v0.9-5 */
 
 /* important changes between versions:
    3.0  - adds compiler
@@ -57,9 +57,7 @@
 #define WIN32
 #endif
 
-#ifndef Win32
 #include "config.h"
-#endif
 
 #ifdef MEMPROF
 #include <stdio.h>
@@ -134,6 +132,8 @@ REPC SEXP RgetSimpleClassNames( SEXP, SEXP );
 /* in init.c */
 extern JavaVM *jvm;
 extern int rJava_initialized;
+
+extern int java_is_dead;
 
 extern jclass javaStringClass;
 extern jclass javaObjectClass;
