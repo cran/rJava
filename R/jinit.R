@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: jinit.R 587 2013-11-19 21:45:06Z urbanek $
+## $Id$
 
 .check.JVM <- function() 
     .Call(RJava_checkJVM)

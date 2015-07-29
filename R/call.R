@@ -2,7 +2,7 @@
 ## (C)2006 Simon Urbanek <simon.urbanek@r-project.org>
 ## For license terms see DESCRIPTION and/or LICENSE
 ##
-## $Id: call.R 578 2013-03-11 15:36:39Z urbanek $
+## $Id$
 
 # create a new object
 .jnew <- function(class, ..., check=TRUE, silent=!check) {
