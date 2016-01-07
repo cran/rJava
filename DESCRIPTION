@@ -1,5 +1,5 @@
 Package: rJava
-Version: 0.9-7
+Version: 0.9-8
 Title: Low-Level R to Java Interface
 Author: Simon Urbanek <simon.urbanek@r-project.org>
 Maintainer: Simon Urbanek <simon.urbanek@r-project.org>
@@ -10,6 +10,6 @@ URL: http://www.rforge.net/rJava/
 SystemRequirements: Java JDK 1.2 or higher (for JRI/REngine JDK 1.4 or
         higher), GNU make
 NeedsCompilation: yes
-Packaged: 2015-07-27 22:46:02 UTC; urbanek
+Packaged: 2015-11-16 02:41:10 UTC; svnuser
 Repository: CRAN
-Date/Publication: 2015-07-29 07:21:20
+Date/Publication: 2016-01-07 15:09:40
