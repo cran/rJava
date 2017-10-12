@@ -1,7 +1,20 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
-0.9-8	(under development)
+0.9-9	(released to CRAN)
+    o	Work around a bug of Oracle's Java on Linux which caps the stack of
+        R at 2M.  The bug leads to segfaults in recursive computations (not
+        an R error as R doesn't know the stack size has been reduced).  The
+        workaround can be disabled via environment variable
+        RJAVA_JVM_STACK_WORKAROUND=0, which may produce better results with
+        memory access checkers (ASAN, valgrind), because the workaround
+        detects the new stack size by trying to access inaccessible memory. 
+        This JVM behavior was a workaround for an issue in old Linux systems
+        (JDK-4466587) and is going to be fixed in Java 10.
+
+    o   Java 9 only supports versions >= 1.6, so change many Makefiles to 1.6.
+
+0.9-8	2016-01-07
     o	Work around a bug on Oracle's Java on OS X by pre-loading jli
 
     o	Work around DYLD_FALLBACK_LIBRARY_PATH being dropped in OS X 10.11

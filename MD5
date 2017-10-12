@@ -1,6 +1,6 @@
-7f0a86d6017d94443d386b83b7350f4b *DESCRIPTION
+aad0bb01368de0a338b0d4e97acb3da3 *DESCRIPTION
 8ce0ce5f51c990a52e40300b783b9a82 *NAMESPACE
-25da75381a7c7c7436a161da7f1ac233 *NEWS
+74ef125d433493b6895ddb649ae044ff *NEWS
 fb03ffac65f44f5620f9e41bb6849303 *R/0classes.R
 42839b45c629f05aaa233258ee22cd99 *R/J.R
 f3fb76b841a4385db9de77094ac040a8 *R/arrays.R
@@ -130,7 +130,7 @@ a724e5f04f149d2e888b5b287d1c725f *inst/javadoc/stylesheet.css
 80e1ad62ecac019d0b982b2cf8401256 *install-sh
 1702a92c723f09e3fab3583b165a8d90 *jri/LGPL.txt
 93f82aebab3ff00b332cf772f576bd74 *jri/LICENSE
-4aa47604ee53e07a0d467cb02e0113c0 *jri/Makefile.all
+c986deedd83054842f1c6721329567db *jri/Makefile.all
 76993d81fed7053ab28279307973a6c8 *jri/Makefile.in
 03c49ba859c5d95faaad26a62504c927 *jri/Makefile.win
 8c30e2798f5449c3978d892fcef1e693 *jri/Makevars.win
@@ -143,10 +143,10 @@ d89806a15972a35208e44cfe67a4c858 *jri/RBool.java
 074364e3ce679a3f0ef96216d2b3b4a8 *jri/REngine/JRI/JRIEngine.java
 3742f8774917faa341022f926a4aa667 *jri/REngine/JRI/Makefile
 9714690518f4d6dbfe3f89fefb0e8a91 *jri/REngine/JRI/package-info.java
-ecd8c8639668ad35fa74730ad499f010 *jri/REngine/JRI/test/Makefile
+a24881fced120a304d50299e2bca6233 *jri/REngine/JRI/test/Makefile
 cf61905afba88cc39be79c5dabcf4d07 *jri/REngine/JRI/test/RTest.java
 067d3e0bb9ba9932948fecad436036e6 *jri/REngine/LICENSE
-a8d205603147cb23b9ed16de95e24978 *jri/REngine/Makefile
+092e7f8413d0a0446eea128be408a0ec *jri/REngine/Makefile
 3927ba79c7a801f36075f1b809d06196 *jri/REngine/MutableREXP.java
 865520643c7aa95ed069a4b2a0173fc8 *jri/REngine/REXP.java
 a8de3e1fab786f0d9762b5b2b0f63bed *jri/REngine/REXPDouble.java
@@ -215,7 +215,7 @@ b8f50d514a93033cc3417b177aae49da *jri/bootstrap/DelegatedClassLoader.java
 81926a811f52a81cbf79e83ec3b01b51 *jri/bootstrap/JRIBootstrap.h
 0e73e0900e11eedef4c3ed1d5358351f *jri/bootstrap/JRIBootstrap.java
 1e2605e758ac858a45315877f68e8f45 *jri/bootstrap/JRIClassLoader.java
-0e41a1d775ca59467d394b1e5dc57ff5 *jri/bootstrap/Makefile
+09358c9c22dd2b59a8a1a6a574e3d8a2 *jri/bootstrap/Makefile
 49b41100efbcb02fdc7d3289851f0c11 *jri/bootstrap/mft
 4d317ce54e0a3b4da60ba08afa144235 *jri/configure
 d8a1349083f7e07c115aa73caf85adac *jri/configure.ac
@@ -224,7 +224,7 @@ ec5713c3b705880e6b76ea91cf5aecc2 *jri/configure.win
 46e7ae225494cdb2a91b2de96a9ea18b *jri/examples/rtest2.java
 c69b549f536d2c4fdc7dd6fb2c0c8682 *jri/package-info.java
 bc8dfbefbb4c8a177682898bfcbe5f54 *jri/run.in
-3306dc7ad3a2ec01564e74444719d62a *jri/src/Makefile.all
+4abb8e8a0ec275eb6c108cc2d5a111ed *jri/src/Makefile.all
 f78f89a3e935cebd1aab7b2d75b143e8 *jri/src/Makefile.in
 40bd09315359bb8d8a0efff9ef832890 *jri/src/Makefile.win
 201d53f6cdb464bbccd22803661a1d68 *jri/src/Rcallbacks.c
@@ -261,7 +261,7 @@ dee5645f1ea27113b6bf07173087b1b4 *man/instanceof.Rd
 2a4f5ba920a94467207299423cbb369e *man/jarray.Rd
 482be28ccfa570c39ac8ab70673bfa55 *man/jarrayRef-class.Rd
 6a249a9357ad9a69fb4781af82cb9ee3 *man/java-tools.Rd
-1ea3b8fcc10815bee75d883870e0a36a *man/javaImport.Rd
+4a4d114cd1ef7bdb43ce3df240acd03e *man/javaImport.Rd
 e8188891eee9f8ea359ffe6780c21fae *man/jcall.Rd
 e7eb063c7ba073ffb0945860b26afa02 *man/jcast.Rd
 a34aa36de31e52e7c03e78a949858296 *man/jcastToArray.Rd
@@ -297,7 +297,7 @@ eb839008c4a65f6dc28905c26a0bd436 *src/callback.c
 b0a0a1a184247e1e249b718008ca3c29 *src/callback.h
 b3e60bc7509411c8488dc09a590ab378 *src/config.h.in
 f268b61e57b0aca648069547e5149797 *src/fields.c
-f03ad78190e982222dfb099fb35d37e9 *src/init.c
+32845a377918250aa44e9a970ddc31d4 *src/init.c
 842d77ab909b725951d16ae7d5e12836 *src/install.libs.R
 f23da3195f2b976762201cb94d37a6f4 *src/java/ArrayDimensionException.class
 645da70472ece119aaedfc3ad77ed754 *src/java/ArrayDimensionException.java
@@ -309,7 +309,7 @@ b549a0e92555b691c3a9054377bc8b9b *src/java/ArrayWrapper_Test.java
 74c293d19b618a08f3702a75e420efa4 *src/java/DummyPoint.java
 522f8ea7625320de49f20396f509017f *src/java/FlatException.class
 481d3ff09ad6d5c55402290148a89bda *src/java/FlatException.java
-5ff7d68173957f8396f358ffb321d978 *src/java/Makefile
+e18c67f965d5960e9e4b0d965d8b3591 *src/java/Makefile
 477f4d557f74f3cfca4a70a3254ad5b2 *src/java/NotAnArrayException.class
 ef9ef7beaa915a26925cc20c4fbefda6 *src/java/NotAnArrayException.java
 0c088471697bcafed5f1b2c79a7b2d6c *src/java/NotComparableException.class

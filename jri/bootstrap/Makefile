@@ -63,7 +63,7 @@ clean:
 	rm -f JRIBootstrap.o $(JSO_PREFIX)boot$(JSO_SUFFIX) *.class *~
 
 boot.jar: $(JSO_PREFIX)boot$(JSO_SUFFIX)
-	$(JAVAC) -source 1.2 -target 1.2 *.java
+	$(JAVAC) -source 1.6 -target 1.6 *.java
 	$(JAR) fcm $@ mft *.class $^
 
 .PHONY: clean run all
