@@ -1,10 +1,31 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
-*************  Java 12 has broken JNI support and cannot be used! It has
-** WARNING **  has been reported and will likely be fixed in future
-*************  versions of Java, but for now do NOT upgrade to Java 12!
-	       (see #175 for details)
+0.9-12	(under development)
+    o	rJava has a new option --enable-dynload which enables rJava to load
+	JVM dynamically at run-time. It is only supported on unix platforms
+	at this point and is enabled by default on macOS. When enabled,
+	rJava library does not link to JVM, but instead assumes that the
+	JVM library will be loaded into R before JVM functions are used.
+
+	The default initialization uses the following order to find JVM at
+	run-time:
+	- use JAVA_HOME (typically set by R CMD javareconf)
+	- call /usr/libsexec/java_home (if JAVA_HOME is not set)
+	Find ${JAVA_HOME}[/jre]/lib/server/libjvm.{so|dylib}
+	If not found, Java cannot be loaded.
+
+    o	convert class names from Java objects into JNI notation when
+	constructing method signatures. (#81)
+
+    o	fix a bug in .jfield() which prevented accessing static fields
+	if rJava class loader was not present yet (only affected
+	initialization).
+
+    o	modify boostrap to avoid reflection calls which are broken in
+	Java 12 (see #175 and https://bugs.openjdk.java.net/browse/JDK-8221530).
+
+    o	added .jgc() to run JVM garbage collector (#180)
 
 
 0.9-11	2019-03-27
@@ -24,10 +45,6 @@
 	key is using JDK instead Java Development Kit (#120)
 	
     o	Windows: don't fail if `RuntimeLib` registry entry is missing (#163)
-
-    o	Windows: fix build if javah.exe is missing (#157)
-
-    o	Windows: fix build if javah.exe is missing (#157)
 
 
 0.9-10	2018-05-29
