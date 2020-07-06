@@ -1,7 +1,23 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
-0.9-12	(under development)
+0.9-13	2020-07-06
+    o	increase default JVM stack size by adding -Xss2m to JVM parameters
+	unless -Xss is already specified in .jinit(). This is an
+	attempt to address stack overflow problems in Java 11 and higher
+	on some platforms which appear to use very small stack
+	sizes. (#224)
+
+    o	re-define EXTPTR_xx macros to avoid ABI breakage between R 4.0.0
+	and later R 4.0.x versions.
+
+    o	add missing C entry points to the symbol cache. (#221)
+
+    o	disable dynamic symbol lookup to catch any (inadvertent) use of
+	unregistered symbols.
+
+
+0.9-12	2020-03-23
     o	rJava has a new option --enable-dynload which enables rJava to load
 	JVM dynamically at run-time. It is only supported on unix platforms
 	at this point and is enabled by default on macOS. When enabled,
@@ -11,9 +27,15 @@
 	The default initialization uses the following order to find JVM at
 	run-time:
 	- use JAVA_HOME (typically set by R CMD javareconf)
-	- call /usr/libsexec/java_home (if JAVA_HOME is not set)
+	- call /usr/libexec/java_home (if JAVA_HOME is not set)
 	Find ${JAVA_HOME}[/jre]/lib/server/libjvm.{so|dylib}
 	If not found, Java cannot be loaded.
+
+	On Windows the order has not changed: getOption("java.home"),
+	JAVA_HOME environment variable and registry. However, if the
+	Java home setting is specified, it must be a valid directory,
+	otherwise a warning is issued (#209) and it is assumed to
+	be "" and thus the search continues in the registry.
 
     o	convert class names from Java objects into JNI notation when
 	constructing method signatures. (#81)
@@ -26,6 +48,12 @@
 	Java 12 (see #175 and https://bugs.openjdk.java.net/browse/JDK-8221530).
 
     o	added .jgc() to run JVM garbage collector (#180)
+
+    o	fix filtered .jfields() to return actual values (#213)
+
+    o	.jfields() and .jmethods() now correctly filter results even for
+	as.obj=TRUE (#212). Filtering is done by retrieving the names and
+	applying the regular expression specified in `name'.
 
 
 0.9-11	2019-03-27
