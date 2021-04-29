@@ -1,12 +1,12 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x00090d /* rJava v0.9-13 */
+#define RJAVA_VER 0x010004 /* rJava v1.0-4 */
 
 /* important changes between versions:
    3.0  - adds compiler
    2.0
-   1.0
+   1.0  - custom package class loaders
    0.9  - rectangular arrays, flattening, import
           (really introduced in later 0.8 versions but they broke
 	   the API compatibility so 0.9 attempts to fix that)
@@ -102,8 +102,8 @@ void profReport(char *fmt, ...);
 #define mkCharUTF8(X) mkChar(X)
 #define CHAR_UTF8(X) CHAR(X)
 #else
-#define mkCharUTF8(X) mkCharCE(X, CE_UTF8)
 #define CHAR_UTF8(X) rj_char_utf8(X)
+extern SEXP mkCharUTF8(const char *);
 extern const char *rj_char_utf8(SEXP);
 #endif
 
@@ -201,6 +201,7 @@ HIDE jdoubleArray newDoubleArray(JNIEnv *env, double *cont, int len);
 HIDE jintArray newIntArray(JNIEnv *env, int *cont, int len);
 HIDE jbooleanArray newBooleanArrayI(JNIEnv *env, int *cont, int len);
 HIDE jstring newString(JNIEnv *env, const char *cont);
+HIDE jstring newString16(JNIEnv *env, const jchar *cont, jsize len);
 HIDE jcharArray newCharArrayI(JNIEnv *env, int *cont, int len);
 HIDE jshortArray newShortArrayI(JNIEnv *env, int *cont, int len);
 HIDE jfloatArray newFloatArrayD(JNIEnv *env, double *cont, int len);
@@ -221,7 +222,7 @@ HIDE int initClassLoader(JNIEnv *env, jobject cl);
 HIDE void deserializeSEXP(SEXP o);
 
 /* this is a hook for de-serialization */
-#define jverify(X) if (EXTPTR_PROT(X) != R_NilValue) deserializeSEXP(X)
+#define jverify(X) if (X && TYPEOF(X) == EXTPTRSXP && EXTPTR_PROT(X) != R_NilValue) deserializeSEXP(X)
 
 #define IS_JOBJREF(obj) ( inherits(obj, "jobjRef") || inherits(obj, "jarrayRef") || inherits(obj,"jrectRef") )
 #define IS_JARRAYREF(obj) ( inherits(obj, "jobjRef") || inherits(obj, "jarrayRef") || inherits(obj, "jrectRef") )

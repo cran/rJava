@@ -4,6 +4,8 @@
 #include <Rdefines.h>
 #include <R_ext/Parse.h>
 #include <R_ext/Print.h>
+#include <R_ext/Riconv.h>
+#include <errno.h>
 
 /* R 4.0.1 broke EXTPTR_PTR ABI so re-map it to safety at
    the small expense of speed */
@@ -23,7 +25,7 @@
 
 #include <stdarg.h>
 
-/* max supported # of parameters to Java methdos */
+/* max supported # of parameters to Java methods */
 #ifndef maxJavaPars
 #define maxJavaPars 32
 #endif
@@ -42,7 +44,7 @@ REPC SEXP RJava_has_jri_cb() {
   LOGICAL(r)[0] = 0;
 #endif
   return r;
-} 
+}
 
 /* debugging output (enable with -DRJ_DEBUG) */
 #ifdef RJ_DEBUG
@@ -131,7 +133,7 @@ SEXP j2SEXP(JNIEnv *env, jobject o, int releaseLocal) {
       releaseObject(env, o);
     o=go;
   }
-  
+
   {
     SEXP xp = R_MakeExternalPtr(o, R_NilValue, R_NilValue);
 
@@ -155,15 +157,171 @@ SEXP j2SEXP(JNIEnv *env, jobject o, int releaseLocal) {
 }
 
 #if R_VERSION >= R_Version(2,7,0)
-/* returns string from a CHARSXP making sure that the result is in UTF-8 */
+/* returns string from a CHARSXP making sure that the result is in UTF-8
+   NOTE: this should NOT be used to create Java strings as they require UTF-16 natively */
 const char *rj_char_utf8(SEXP s) {
-	if (Rf_getCharCE(s) == CE_UTF8) return CHAR(s);
-	return Rf_reEnc(CHAR(s), getCharCE(s), CE_UTF8, 0); /* subst. invalid chars: 1=hex, 2=., 3=?, other=skip */
+    return (Rf_getCharCE(s) == CE_UTF8) ? CHAR(s) : Rf_reEnc(CHAR(s), getCharCE(s), CE_UTF8, 0); /* subst. invalid chars: 1=hex, 2=., 3=?, other=skip */
 }
+
+#ifdef WIN32
+extern unsigned int localeCP;
+static char cpbuf[16];
+#endif
+static jchar js_zero[2] = { 0, 0 };
+static jchar js_buf[128];
+/* returns string from a CHARSXP making sure that the result is in UTF-16.
+   the buffer is owned by the function and may be static, so copy after use */
+int rj_char_utf16(SEXP s, jchar **buf) {
+    void *ih;
+    cetype_t ce_in = getCharCE(s);
+    const char *ifrom = "", *c = CHAR(s), *ce = strchr(c, 0);
+    if (ce == c) {
+	buf[0] = js_zero;
+	return 0;
+    }
+    size_t osize = sizeof(jchar) * (ce - c + 1), isize = ce - c;
+    jchar *js = buf[0] = (osize < sizeof(js_buf)) ? js_buf : (jchar*) R_alloc(sizeof(jchar), ce - c + 1);
+    char *dst = (char*) js;
+    int end_test = 1;
+
+    switch (ce_in) {
+#ifdef WIN32
+    case CE_NATIVE:
+	sprintf(cpbuf, "CP%d", localeCP);
+	ifrom = cpbuf;
+	break;
+    case CE_LATIN1: ifrom = "CP1252"; break;
+#else
+    case CE_LATIN1: ifrom = "latin1"; break;
+#endif
+    default:
+	ifrom = "UTF-8"; break;
+    }
+
+    ih = Riconv_open(((char*)&end_test)[0] == 1 ? "UTF-16LE" : "UTF-16BE", ifrom);
+    if(ih == (void *)(-1))
+	Rf_error("Unable to start conversion to UTF-16");
+    while (c < ce) {
+	size_t res = Riconv(ih, &c, &isize, &dst, &osize);
+	/* this should never happen since we allocated far more than needed */
+	if (res == -1 && errno == E2BIG)
+	    Rf_error("Conversion to UTF-16 failed due to unexpectedly large buffer requirements.");
+	else if(res == -1 && (errno == EILSEQ || errno == EINVAL)) { /* invalid char */
+	    *(dst++) = '?';
+	    *(dst++) = 0;
+	    osize -= 2;
+	    c++;
+	    isize--;
+	}
+    }
+    Riconv_close(ih);
+    return dst - (char*) js;
+}
+
+/* Java returns *modified* UTF-8 which is incompatible with UTF-8,
+   so we have to detect the illegal surrgoate pairs and convert them */
+SEXP mkCharUTF8(const char *src) {
+    const unsigned char *s = (const unsigned char*) src;
+    const unsigned char *c = (const unsigned char*) s;
+    /* check if the string contains any surrogate pairs, i.e.
+       Unicode in the range 0xD800-0xDFFF
+       We want this to be fast since in 99.99% of cases it will
+       be false */
+    while (*c) {
+	if (c[0] == 0xED &&
+	    (c[1] & 0xE0) == 0xA0)
+	    break;
+	c++;
+    }
+    if (*c) { /* yes, we have to convert them */
+	SEXP res;
+	const unsigned char *e = (const unsigned char*) strchr((const char*)s, 0); /* find the end for size */
+	unsigned char *dst = 0, *d, sbuf[64];
+	if (!e) /* should never occur */
+	    return mkChar("");
+	/* we use static buffer for small strings and dynamic alloc for large */
+	if (e - s >= sizeof(sbuf)) {
+	    /* allocate temp buffer since our input is const */
+	    d = dst = (unsigned char *) malloc(e - s + 1);
+	    if (!dst)
+		Rf_error("Cannot allocate memory for surrogate pair conversion");
+	} else
+	    d = (unsigned char *)sbuf;
+	if (c - s > 0) {
+	    memcpy(d, s, c - s);
+	    d += c - s;
+	}
+	while (*c) {
+	    unsigned int u1, u;
+	    *(d++) = *(c++);
+	    /* start of a sequence ? */
+	    if ((c[-1] & 0xC0) != 0xC0)
+		continue;
+	    if ((c[-1] & 0xE0) == 0xC0)  { /* 2-byte, not a surrogate pair */
+		if ((c[0] & 0xC0) != 0x80) {
+		    if (dst) free(dst);
+		    Rf_error("illegal 2-byte sequence in Java string");
+		}
+		*(d++) = *(c++);
+		continue;
+	    }
+	    if ((c[-1] & 0xF0) != 0xE0) { /* must be 3-byte */
+		if (dst) free(dst);
+		Rf_error("illegal multi-byte seqeunce in Java string (>3-byte)");
+	    }
+	    if (((c[0] & 0xC0) != 0x80 ||
+		 (c[1] & 0xC0) != 0x80)) {
+		if (dst) free(dst);
+		Rf_error("illegal 3-byte sequence in Java string");
+	    }
+	    u1 = ((((unsigned int)c[-1]) & 0x0F) << 12) |
+		 ((((unsigned int)c[0]) & 0x3F) << 6) |
+		 (((unsigned int)c[1]) & 0x3F);
+	    if (u1 < 0xD800 || u1 > 0xDBFF) { /* not a surrogate pair -> regular copy */
+		*(d++) = *(c++);
+		*(d++) = *(c++);
+		continue;
+	    }
+	    if (u1 >= 0xDC00 && u1 <= 0xDFFF) { /* low surrogate pair ? */
+		if (dst) free(dst);
+		Rf_error("illegal sequence in Java string: low surrogate pair without a high one");
+	    }
+	    c += 2; /* move to the low pair */
+	    if (c[0] != 0xED ||
+		(c[1] & 0xF0) != 0xB0 ||
+		(c[2] & 0xC0) != 0x80) {
+		if (dst) free(dst);
+		Rf_error("illegal sequence in Java string: high surrogate pair not followed by low one");
+	    }
+	    /* the actually encoded unicode character */
+	    u = ((((unsigned int)c[1]) & 0x0F) << 6) |
+		(((unsigned int)c[2]) & 0x3F);
+	    u |= (u1 & 0x03FF) << 10;
+	    u += 0x10000;
+	    c += 3;
+	    /* it must be <= 0x10FFFF by design (each surrogate has 10 bits) */
+	    d[-1]  = (unsigned char) (((u >> 18) & 0x0F) | 0xF0);
+	    *(d++) = (unsigned char) (((u >> 12) & 0x3F) | 0x80);
+	    *(d++) = (unsigned char) (((u >> 6) & 0x3F) | 0x80);
+	    *(d++) = (unsigned char) ((u & 0x3F) | 0x80);
+	}
+	res = mkCharLenCE((const char*) (dst ? dst : sbuf), dst ? (d - dst) : (d - sbuf), CE_UTF8);
+	if (dst) free(dst);
+	return res;
+    }
+    return mkCharLenCE(src, c - s, CE_UTF8);
+}
+
 #endif
 
+static jstring newJavaString(JNIEnv *env, SEXP sChar) {
+    jchar *s;
+    size_t len = rj_char_utf16(sChar, &s);
+    return newString16(env, s, (len + 1) >> 1);
+}
+
 HIDE void deserializeSEXP(SEXP o) {
-  _dbg(rjprintf("attempt to deserialize %p (clCL=%p, oCL=%p)\n", o, clClassLoader, oClassLoader));
+  _dbg(rjprintf("attempt to deserialize %p (clCl=%p, oCL=%p)\n", o, clClassLoader, oClassLoader));
   SEXP s = EXTPTR_PROT(o);
   if (TYPEOF(s) == RAWSXP && EXTPTR_PTR(o) == NULL) {
     JNIEnv *env = getJNIEnv();
@@ -190,7 +348,7 @@ HIDE void deserializeSEXP(SEXP o) {
 	}
 	releaseObject(env, ser);
       }
-    }    
+    }
   }
 }
 
@@ -234,7 +392,7 @@ HIDE void init_sigbuf(sig_buffer_t *sb) {
 }
 
 /* free the content of a signature buffer (if necessary) */
-HIDE void done_sigbuf(sig_buffer_t *sb) { 
+HIDE void done_sigbuf(sig_buffer_t *sb) {
   if (sb->sig != sb->sigbuf) free(sb->sig);
 }
 
@@ -256,7 +414,7 @@ static int Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, sig_buffer_t *sig, i
 	    Rf_error("Too many arguments in Java call. maxJavaPars is %d, recompile rJava with higher number if needed.", maxJavaPars);
 	break;
     }
-    
+
     _dbg(rjprintf("Rpar2jvalue: par %d type %d\n",i,TYPEOF(e)));
     if (TYPEOF(e)==STRSXP) {
       _dbg(rjprintf(" string vector of length %d\n",LENGTH(e)));
@@ -266,7 +424,7 @@ static int Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, sig_buffer_t *sig, i
 	  if (sv == R_NaString) {
 	      addtmpo(tmpo, jpar[jvpos++].l = 0);
 	  } else {
-	      addtmpo(tmpo, jpar[jvpos++].l = newString(env, CHAR_UTF8(sv)));
+	      addtmpo(tmpo, jpar[jvpos++].l = newJavaString(env, sv));
 	  }
       } else {
 	  int j = 0;
@@ -282,7 +440,7 @@ static int Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, sig_buffer_t *sig, i
 	      SEXP sv = STRING_ELT(e,j);
 	      if (sv == R_NaString) {
 	      } else {
-		  jobject s = newString(env, CHAR_UTF8(sv));
+		  jobject s = newJavaString(env, sv);
 		  _dbg(rjprintf (" [%d] \"%s\"\n",j,CHAR_UTF8(sv)));
 		  (*env)->SetObjectArrayElement(env, sa, j, s);
 		  if (s) releaseObject(env, s);
@@ -375,6 +533,10 @@ static int Rpar2jvalue(JNIEnv *env, SEXP par, jvalue *jpar, sig_buffer_t *sig, i
     } else if (TYPEOF(e)==VECSXP || TYPEOF(e)==S4SXP) {
       if (TYPEOF(e) == VECSXP)
 	_dbg(rjprintf(" generic vector of length %d\n", LENGTH(e)));
+      if (inherits(e, "jclassName")) {
+	_dbg(rjprintf(" jclassName, replacing with embedded class jobjRef"));
+	e = GET_SLOT(e, install("jobj"));
+      }
       if (IS_JOBJREF(e)) {
 	jobject o=(jobject)0;
 	const char *jc=0;
@@ -459,10 +621,10 @@ REPE SEXP RcallMethod(SEXP par) {
   jmethodID mid = 0;
   jclass cls;
   JNIEnv *env = getJNIEnv();
-  
+
   profStart();
   p=CDR(p); e=CAR(p); p=CDR(p);
-  if (e==R_NilValue) 
+  if (e==R_NilValue)
     error_return("RcallMethod: call on a NULL object");
   if (TYPEOF(e)==EXTPTRSXP) {
     jverify(e);
@@ -494,7 +656,7 @@ REPE SEXP RcallMethod(SEXP par) {
   if (TYPEOF(e)==STRSXP && LENGTH(e)==1) { /* signature */
     retsig=CHAR_UTF8(STRING_ELT(e,0));
     /*
-      } else if (inherits(e, "jobjRef")) { method object 
+      } else if (inherits(e, "jobjRef")) { method object
     SEXP mexp = GET_SLOT(e, install("jobj"));
     jobject mobj = (jobject)(INTEGER(mexp)[0]);
     _dbg(rjprintf(" signature is Java object %x - using reflection\n", mobj);
@@ -502,7 +664,7 @@ REPE SEXP RcallMethod(SEXP par) {
     retsig = getReturnSigFromMethodObject(mobj);
     */
   } else error_return("RcallMethod: invalid return signature parameter");
-    
+
   e=CAR(p); p=CDR(p);
   if (TYPEOF(e)!=STRSXP || LENGTH(e)!=1)
     error_return("RcallMethod: invalid method name");
@@ -547,7 +709,7 @@ END_RJAVA_CALL
 BEGIN_RJAVA_CALL
     int r=o?
       (*env)->CallIntMethodA(env, o, mid, jpar):
-      (*env)->CallStaticIntMethodA(env, cls, mid, jpar);  
+      (*env)->CallStaticIntMethodA(env, cls, mid, jpar);
     e = allocVector(INTSXP, 1);
     INTEGER(e)[0] = r;
 END_RJAVA_CALL
@@ -582,7 +744,7 @@ END_RJAVA_CALL
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
    }
- case 'J': { 
+ case 'J': {
 BEGIN_RJAVA_CALL
     jlong r=o?
       (*env)->CallLongMethodA(env, o, mid, jpar):
@@ -595,7 +757,7 @@ END_RJAVA_CALL
     _prof(profReport("Method \"%s\" returned:",mnam));
     return e;
  }
- case 'S': { 
+ case 'S': {
 BEGIN_RJAVA_CALL
     jshort r=o?
       (*env)->CallShortMethodA(env, o, mid, jpar):
@@ -669,7 +831,7 @@ END_RJAVA_CALL
   } /* switch */
   _prof(profReport("Method \"%s\" has an unknown signature, not called:",mnam));
   releaseObject(env, cls);
-  error("unsupported/invalid mathod signature %s", retsig);
+  error("unsupported/invalid method signature %s", retsig);
   return R_NilValue;
 }
 
@@ -680,7 +842,7 @@ REPE SEXP RcallSyncMethod(SEXP par) {
   JNIEnv *env=getJNIEnv();
 
   p=CDR(p); e=CAR(p); p=CDR(p);
-  if (e==R_NilValue) 
+  if (e==R_NilValue)
     error("RcallSyncMethod: call on a NULL object");
   if (TYPEOF(e)==EXTPTRSXP) {
     jverify(e);
@@ -777,7 +939,7 @@ END_RJAVA_CALL
     }
   }
 #endif
-  
+
   return j2SEXP(env, o, 1);
 }
 
@@ -825,7 +987,7 @@ HIDE SEXP new_jobjRef(JNIEnv *env, jobject o, const char *klass) {
   return oo;
 }
 
-/** 
+/**
  * creates a new jclassName object. similar to what the jclassName
  * function does in the R side
  *
@@ -846,9 +1008,9 @@ HIDE SEXP new_jclassName(JNIEnv *env, jobject/*Class*/ cl ) {
 /** Calls the Class.getName method and return the result as an R STRSXP */
 HIDE SEXP getName( JNIEnv *env, jobject/*Class*/ cl){
 	char cn[128];
-	
+
 	jstring r = (*env)->CallObjectMethod(env, cl, mid_getName);
-  
+
 	cn[127]=0; *cn=0;
   	int sl = (*env)->GetStringLength(env, r);
   	if (sl>127) {
@@ -857,7 +1019,7 @@ HIDE SEXP getName( JNIEnv *env, jobject/*Class*/ cl){
   	if (sl) (*env)->GetStringUTFRegion(env, r, 0, sl, cn);
   	char *c=cn; while(*c) { if (*c=='.') *c='/'; c++; }
 
-	SEXP res = PROTECT( mkString(cn ) ); 
+	SEXP res = PROTECT( mkString(cn ) );
 	releaseObject(env, r);
 	UNPROTECT(1); /* res */
 	return res;
@@ -881,7 +1043,7 @@ static SEXP new_jarrayRef(JNIEnv *env, jobject a, const char *sig) {
 /**
  * Creates a reference to a rectangular java array.
  *
- * @param env 
+ * @param env
  * @param a the java object
  * @param sig signature (class of the array object)
  * @param dim dimension vector
@@ -898,7 +1060,7 @@ static SEXP new_jrectRef(JNIEnv *env, jobject a, const char *sig, SEXP dim ) {
   SET_SLOT(oo, install("jclass"), mkString(sig));
   SET_SLOT(oo, install("jsig"), mkString(sig));
   SET_SLOT(oo, install("dimension"), dim);
-  
+
   UNPROTECT(1); /* oo */
   return oo;
 }
@@ -906,17 +1068,17 @@ static SEXP new_jrectRef(JNIEnv *env, jobject a, const char *sig, SEXP dim ) {
 /* this does not take care of multi dimensional arrays properly */
 
 /**
- * Creates a one dimensionnal java array
+ * Creates a one dimensional java array
  *
  * @param an R list or vector
  * @param cl the class name
  */
 REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
   JNIEnv *env=getJNIEnv();
-  
+
   if (ar==R_NilValue) return R_NilValue;
   switch(TYPEOF(ar)) {
-  case INTSXP:                                
+  case INTSXP:
     {
       if (inherits(ar, "jbyte")) {
 	jbyteArray a = newByteArrayI(env, INTEGER(ar), LENGTH(ar));
@@ -925,7 +1087,7 @@ REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
       } else if (inherits(ar, "jchar")) {
 	jcharArray a = newCharArrayI(env, INTEGER(ar), LENGTH(ar));
 	if (!a) error("unable to create a char array");
-	return new_jarrayRef(env, a, "[C" ); 
+	return new_jarrayRef(env, a, "[C" );
       } else if (inherits(ar, "jshort")) {
 	jshortArray a = newShortArrayI(env, INTEGER(ar), LENGTH(ar));
 	if (!a) error("unable to create a short integer array");
@@ -960,7 +1122,7 @@ REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
       while (i < LENGTH(ar)) {
 	  SEXP sa = STRING_ELT(ar, i);
 	  if (sa != R_NaString) {
-	      jobject so = newString(env, CHAR_UTF8(sa));
+	      jobject so = newJavaString(env, sa);
 	      (*env)->SetObjectArrayElement(env, a, i, so);
 	      releaseObject(env, so);
 	  }
@@ -981,12 +1143,12 @@ REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
       jclass ac = javaObjectClass;
       const char *sigName = 0;
       char buf[256];
-      
+
       while (i<LENGTH(ar)) {
 	SEXP e = VECTOR_ELT(ar, i);
 	if (e != R_NilValue &&
 	    !inherits(e, "jobjRef") &&
-	    !inherits(e, "jarrayRef") && 
+	    !inherits(e, "jarrayRef") &&
 	    !inherits(e, "jrectRef") )
 	  error("Cannot create a Java array from a list that contains anything other than Java object references.");
 	i++;
@@ -1006,7 +1168,7 @@ REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
 	      buf[0] = '[';
 	      strcpy(buf+1, cname);
 	    } else {
-	      buf[0] = '['; buf[1] = 'L'; 
+	      buf[0] = '['; buf[1] = 'L';
 	      strcpy(buf+2, cname);
 	      strcat(buf,";");
 	    }
@@ -1029,7 +1191,7 @@ REPC SEXP RcreateArray(SEXP ar, SEXP cl) {
 	      jverify(sref);
 	      o = (jobject)EXTPTR_PTR(sref);
 	    }
-	  }	  
+	  }
 	  (*env)->SetObjectArrayElement(env, a, i, o);
 	  i++;
 	}
@@ -1063,7 +1225,7 @@ END_RJAVA_CALL
 REP void RclearException() {
   JNIEnv *env=getJNIEnv();
 BEGIN_RJAVA_CALL
-  (*env)->ExceptionClear(env);  
+  (*env)->ExceptionClear(env);
 END_RJAVA_CALL
 }
 
@@ -1090,7 +1252,7 @@ REPC SEXP RthrowException(SEXP ex) {
 
   if (!inherits(ex, "jobjRef"))
     error("Invalid throwable object.");
-  
+
   exr=GET_SLOT(ex, install("jobj"));
   if (exr && TYPEOF(exr)==EXTPTRSXP) {
     jverify(exr);
@@ -1098,7 +1260,7 @@ REPC SEXP RthrowException(SEXP ex) {
   }
   if (!t)
     error("Throwable must be non-null.");
-  
+
 BEGIN_RJAVA_CALL
   tr = (*env)->Throw(env, t);
 END_RJAVA_CALL

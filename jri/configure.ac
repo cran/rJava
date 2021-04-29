@@ -1,6 +1,6 @@
 AC_INIT([JRI],[0.3],[simon.urbanek@r-project.org])
 AC_CONFIG_SRCDIR([src/jri.h])
-AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_AUX_DIR([tools])
 
 AC_CANONICAL_BUILD
@@ -85,7 +85,7 @@ AC_DEFUN([RUN_JAVA],
 ])
 
 if test -n "${CONFIGURED}"; then
-## re-map varibles that don't match
+## re-map variables that don't match
 JAVA_PROG="${JAVA}"
 JAVA_INC="${JAVA_CPPFLAGS}"
 JAVA_LD_PATH="${JAVA_LD_LIBRARY_PATH}"
@@ -117,11 +117,13 @@ if test -z "$JVER"; then
 else
    AC_MSG_CHECKING([Java compatibility version (integer)])
    ## .. Oracle decided to completely screw up Java version so have to try extract something meaningful ..
-   if echo $JVER | grep '^[[0-9]]\.' >/dev/null; then ## old style 1.X
-      JMVER=`echo $JVER | sed 's:..::' | sed 's:\..*::'`
+   if echo $JVER | grep '^1\.' >/dev/null; then ## old style 1.X
+      JMVER=`echo $JVER | sed 's:^..::' | sed 's:\..*::'`
    else ## new stype omitting the major version
       JMVER=`echo $JVER | sed 's:\..*::'`
    fi
+   ## strip -.* for versions like 13-ea
+   JMVER=`echo $JMVER | sed 's:-.*::'`
    AC_MSG_RESULT([$JMVER])
 fi
 
@@ -186,7 +188,7 @@ if test -n "${JAVA_PROG}" ; then
 fi
 
 if test "x`uname -s 2>/dev/null`" = xDarwin; then
-  ## we need to pull that out of R in case re-export fails (which is does on 10.11)                                                                  
+  ## we need to pull that out of R in case re-export fails (which is does on 10.11)
   DYLD_FALLBACK_LIBRARY_PATH=`"${RBIN}" --slave --vanilla -e 'cat(Sys.getenv("DYLD_FALLBACK_LIBRARY_PATH"))'`
   export DYLD_FALLBACK_LIBRARY_PATH
 fi
@@ -198,7 +200,7 @@ if test ${acx_java_works} = yes; then
   AC_MSG_RESULT([yes])
 
   AC_MSG_CHECKING([for Java environment])
-  ## retrieve JAVA_HOME from Java itself if not set 
+  ## retrieve JAVA_HOME from Java itself if not set
   if test -z "${JAVA_HOME}" ; then
     RUN_JAVA(JAVA_HOME,[-classpath ${getsp_cp} getsp java.home])
   fi
@@ -213,8 +215,10 @@ if test ${acx_java_works} = yes; then
 
     case "${host_os}" in
       darwin*)
-        JAVA_LIBS="-framework JavaVM"
-        JAVA_LD_PATH=
+        if [ -z "${JAVA_LIBS}" ]; then
+          JAVA_LIBS="-framework JavaVM"
+          JAVA_LD_PATH=
+        fi
         ;;
       *)
         RUN_JAVA(JAVA_LIBS, [-classpath ${getsp_cp} getsp -libs])
@@ -317,7 +321,7 @@ JNILD=`"${RBIN}" CMD config SHLIB_LDFLAGS`" ${JAVA_LIBS}"
 case "${host_os}" in
   darwin*)
     JNISO=.jnilib
-    JNILD="-dynamiclib -framework JavaVM"
+    JNILD="-dynamiclib $JNILD"
     CPICF=-fno-common
 
     if test -e "${R_HOME}/lib/i386" -a -e "${R_HOME}/lib/ppc" -a -e "${R_HOME}/lib/libR.dylib"; then

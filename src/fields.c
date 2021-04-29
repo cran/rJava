@@ -22,7 +22,7 @@ static char *classToJNI(const char *cl) {
   if (!strcmp(cl, "short"))   return strdup("S");
   if (!strcmp(cl, "float"))   return strdup("F");
   if (!strcmp(cl, "char"))    return strdup("C");
- 
+
   /* anything else is a real class -> wrap into L..; */
   char *jc = malloc(strlen(cl)+3);
   *jc='L';
@@ -31,6 +31,78 @@ static char *classToJNI(const char *cl) {
   { char *c=jc; while (*c) { if (*c=='.') *c='/'; c++; } }
   return jc;
 }
+
+static SEXP R_Sym_jobj = 0;
+
+/* get an R object and extract Java class and Java object from it.
+   if it is a string of class reference then jobj will
+   be NULL and only the class is provided.
+   is_local is set to1 if the returned cls is a local reference
+   that needs to be released, 0 otherwise (typically if it is NULL
+   or comes from jclassName object)
+   FIXME: This is fairly generic - should we move it to tools?
+*/
+static jclass inputToClass(JNIEnv *env, SEXP obj, jobject *jobj, int *is_local) {
+  jclass cls = 0;
+  jobject o = 0;
+
+  if (is_local)
+    *is_local = 0;
+
+  if (!R_Sym_jobj)
+    R_Sym_jobj = Rf_install("jobj");
+
+  /* jclassName is the result of J("class.name") and has the class object in jobj slot */
+  if (inherits(obj, "jclassName")) {
+    obj = GET_SLOT(obj, R_Sym_jobj);
+    jverify(obj); /* twice wrapped: className has @jobj slot which in turn contains jobjRef to the class */
+    obj = GET_SLOT(obj, R_Sym_jobj);
+    jverify(obj);
+    cls = (jclass)EXTPTR_PTR(obj);
+#ifdef RJ_DEBUG
+    if (cls) {
+      rjprintf("inputToClass, class: "); printObject(env, cls);
+    }
+#endif
+  } else {
+    char *clnam = 0;
+
+    if (IS_JOBJREF(obj)) /* any of the jobjRef derivates */
+      obj = GET_SLOT(obj, install("jobj"));
+    if (TYPEOF(obj) == EXTPTRSXP) {
+      jverify(obj);
+      o = (jobject)EXTPTR_PTR(obj);
+    } else if (TYPEOF(obj) == STRSXP && LENGTH(obj) == 1)
+      clnam = strdup(CHAR(STRING_ELT(obj, 0)));
+    else
+      error("invalid object parameter");
+    if (!o && !clnam)
+      error("cannot access a NULL object");
+#ifdef RJ_DEBUG
+    if (o) {
+      rjprintf("inputToClass, object: "); printObject(env, o);
+    } else {
+      rjprintf("inputToClass, class: %s\n", clnam);
+    }
+#endif
+    if (o)
+      cls = objectClass(env, o);
+    else { /* this should be rare since is doesn't provide a way to specify the class loader */
+      char *c = clnam;
+      cls = findClass(env, clnam, oClassLoader);
+      free(clnam);
+      if (!cls) {
+	error("cannot find class %s", CHAR(STRING_ELT(obj, 0)));
+      }
+    }
+    if (cls && is_local)
+      *is_local = 1;
+  }
+  if (jobj)
+    *jobj = o;
+  return cls;
+}
+
 
 /* find field signature using reflection. Basically it is the same as:
    cls.getField(fnam).getType().getName()
@@ -77,63 +149,36 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
   char *clnam = 0, *detsig = 0;
   jfieldID fid;
   jclass cls;
-  int tc = asInteger(trueclass);
+  int tc = asInteger(trueclass), cls_local = 0;
   JNIEnv *env=getJNIEnv();
 
   if (obj == R_NilValue) return R_NilValue;
-  if ( IS_JOBJREF(obj) )
-    obj = GET_SLOT(obj, install("jobj"));
-  if (TYPEOF(obj)==EXTPTRSXP) {
-    jverify(obj);
-    o=(jobject)EXTPTR_PTR(obj);
-  } else if (TYPEOF(obj)==STRSXP && LENGTH(obj)==1)
-    clnam = strdup(CHAR(STRING_ELT(obj, 0)));
-  else
-    error("invalid object parameter");
-  if (!o && !clnam)
-    error("cannot access a field of a NULL object");
-#ifdef RJ_DEBUG
-  if (o) {
-    rjprintf("RgetField.object: "); printObject(env, o);
-  } else {
-    rjprintf("RgetField.class: %s\n", clnam);
-  }
-#endif
-  if (o)
-    cls = objectClass(env, o);
-  else {
-    char *c = clnam;
-    cls = findClass(env, clnam, oClassLoader);
-    free(clnam);
-    if (!cls) {
-      error("cannot find class %s", CHAR(STRING_ELT(obj, 0)));
-    }
-  }
+  cls = inputToClass(env, obj, &o, &cls_local);
   if (!cls)
     error("cannot determine object class");
 #ifdef RJ_DEBUG
   rjprintf("RgetField.class: "); printObject(env, cls);
 #endif
   if (TYPEOF(name)!=STRSXP || LENGTH(name)!=1) {
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     error("invalid field name");
   }
   fnam = CHAR(STRING_ELT(name,0));
   if (sig == R_NilValue) {
     retsig = detsig = findFieldSignature(env, cls, fnam);
     if (!retsig) {
-      releaseObject(env, cls);
+      if (cls_local) releaseObject(env, cls);
       error("unable to detect signature for field '%s'", fnam);
     }
   } else {
     if (TYPEOF(sig)!=STRSXP || LENGTH(sig)!=1) {
-      releaseObject(env, cls);
+      if (cls_local) releaseObject(env, cls);
       error("invalid signature parameter");
     }
     retsig = CHAR(STRING_ELT(sig,0));
   }
   _dbg(rjprintf("field %s signature is %s\n",fnam,retsig));
-  
+
   if (o) { /* first try non-static fields */
     fid = (*env)->GetFieldID(env, cls, fnam, retsig);
     checkExceptionsX(env, 1);
@@ -146,7 +191,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
 
   if (!fid) {
     checkExceptionsX(env, 1);
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     error("RgetField: field %s not found", fnam);
   }
@@ -157,7 +202,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticIntField(env, cls, fid);
     e = allocVector(INTSXP, 1);
     INTEGER(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -167,7 +212,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticShortField(env, cls, fid);
     e = allocVector(INTSXP, 1);
     INTEGER(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -177,7 +222,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
 		 (*env)->GetStaticCharField(env, cls, fid));
     e = allocVector(INTSXP, 1);
     INTEGER(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -187,7 +232,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
 		 (*env)->GetStaticByteField(env, cls, fid));
     e = allocVector(INTSXP, 1);
     INTEGER(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -197,7 +242,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticLongField(env, cls, fid);
     e = allocVector(REALSXP, 1);
     REAL(e)[0] = (double)r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -207,7 +252,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticBooleanField(env, cls, fid);
     e = allocVector(LGLSXP, 1);
     LOGICAL(e)[0] = r?1:0;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -217,7 +262,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticDoubleField(env, cls, fid);
     e = allocVector(REALSXP, 1);
     REAL(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -227,7 +272,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetStaticFloatField(env, cls, fid));
     e = allocVector(REALSXP, 1);
     REAL(e)[0] = r;
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (detsig) free(detsig);
     return e;
   }
@@ -238,12 +283,12 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
       (*env)->GetObjectField(env, o, fid):
       (*env)->GetStaticObjectField(env, cls, fid);
     _mp(MEM_PROF_OUT("  %08x LNEW field value\n", (int) r))
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (tc) {
       if (detsig) free(detsig);
       return new_jobjRef(env, r, 0);
     }
-    if (*retsig=='L') { /* need to fix the class name */      
+    if (*retsig=='L') { /* need to fix the class name */
       char *d = strdup(retsig), *c = d;
       while (*c) { if (*c==';') { *c=0; break; }; c++; }
       rv = new_jobjRef(env, r, d+1);
@@ -254,7 +299,7 @@ REPC SEXP RgetField(SEXP obj, SEXP sig, SEXP name, SEXP trueclass) {
     return rv;
   }
   } /* switch */
-  releaseObject(env, cls);
+  if (cls_local) releaseObject(env, cls);
   if (detsig) {
     free(detsig);
     error("unknown field signature");
@@ -268,44 +313,17 @@ REPC SEXP RsetField(SEXP ref, SEXP name, SEXP value) {
   SEXP obj = ref;
   const char *fnam;
   sig_buffer_t sig;
-  char *clnam = 0;
   jfieldID fid;
   jclass cls;
   jvalue jval;
+  int cls_local = 0;
   JNIEnv *env=getJNIEnv();
 
   if (TYPEOF(name)!=STRSXP && LENGTH(name)!=1)
     error("invalid field name");
   fnam = CHAR(STRING_ELT(name, 0));
   if (obj == R_NilValue) error("cannot set a field of a NULL object");
-  if (IS_JOBJREF(obj))
-    obj = GET_SLOT(obj, install("jobj"));
-  if (TYPEOF(obj)==EXTPTRSXP) {
-    jverify(obj);
-    o=(jobject)EXTPTR_PTR(obj);
-  } else if (TYPEOF(obj)==STRSXP && LENGTH(obj)==1)
-    clnam = strdup(CHAR(STRING_ELT(obj, 0)));
-  else
-    error("invalid object parameter");
-  if (!o && !clnam)
-    error("cannot set a field of a NULL object");
-#ifdef RJ_DEBUG
-  if (o) {
-    rjprintf("RsetField.object: "); printObject(env, o);
-  } else {
-    rjprintf("RsetField.class: %s\n", clnam);
-  }
-#endif
-  if (o)
-    cls = objectClass(env, o);
-  else {
-    char *c = clnam;
-    while(*c) { if (*c=='/') *c='.'; c++; }
-    cls = findClass(env, clnam, oClassLoader);
-    if (!cls) {
-      error("cannot find class %s", CHAR(STRING_ELT(obj, 0)));
-    }
-  }
+  cls = inputToClass(env, obj, &o, &cls_local);
   if (!cls)
     error("cannot determine object class");
 #ifdef RJ_DEBUG
@@ -313,7 +331,7 @@ REPC SEXP RsetField(SEXP ref, SEXP name, SEXP value) {
 #endif
   init_sigbuf(&sig);
   jval = R1par2jvalue(env, value, &sig, &otr);
-  
+
   if (o) {
     fid = (*env)->GetFieldID(env, cls, fnam, sig.sig);
     if (!fid) {
@@ -325,7 +343,7 @@ REPC SEXP RsetField(SEXP ref, SEXP name, SEXP value) {
     fid = (*env)->GetStaticFieldID(env, cls, fnam, sig.sig);
   if (!fid) {
     checkExceptionsX(env, 1);
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (otr) releaseObject(env, otr);
     done_sigbuf(&sig);
     error("cannot find field %s with signature %s", fnam, sig.sigbuf);
@@ -369,13 +387,13 @@ REPC SEXP RsetField(SEXP ref, SEXP name, SEXP value) {
       (*env)->SetStaticObjectField(env, cls, fid, jval.l);
     break;
   default:
-    releaseObject(env, cls);
+    if (cls_local) releaseObject(env, cls);
     if (otr) releaseObject(env, otr);
     done_sigbuf(&sig);
-    error("unknown field sighanture %s", sig.sigbuf);
+    error("unknown field siganture %s", sig.sigbuf);
   }
   done_sigbuf(&sig);
-  releaseObject(env, cls);
+  if (cls_local) releaseObject(env, cls);
   if (otr) releaseObject(env, otr);
   return ref;
 }

@@ -5,84 +5,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* determine whether eenv chache should be used (has no effect if JNI_CACHE is not set) */
+/* determine whether eenv cache should be used (has no effect if JNI_CACHE is not set) */
 int use_eenv = 1;
 
 /* cached environment. Do NOT use directly! Always use getJNIEnv()! */
 JNIEnv *eenv;
 
-/* -- hack to get at the current call from C code using contexts */
-#if ( R_VERSION >= R_Version(1, 7, 0) )
-#include <setjmp.h>
-
-/* stuff we need to pull for Windows... */
-#ifdef WIN32
-/* this is from gnuwin32/fixed/h/psignal.h */
-#ifndef _SIGSET_T_
-#define _SIGSET_T_
-typedef int sigset_t;
-#endif  /* Not _SIGSET_T_ */
-typedef struct
-{    
-  jmp_buf jmpbuf;     /* Calling environment.  */  
-  int mask_was_saved;       /* Saved the signal mask?  */                   
-  sigset_t saved_mask;      /* Saved signal mask.  */                       
-} sigjmp_buf[1];
-/* we need to set HAVE_POSIX_SETJMP since we don't have config.h on Win */
-#ifndef HAVE_POSIX_SETJMP
-#define HAVE_POSIX_SETJMP
-#endif
-#endif
-
-#ifdef HAVE_POSIX_SETJMP
-#define JMP_BUF sigjmp_buf
-#else
-#define JMP_BUF jmp_buf
-#endif
-
-#ifndef CTXT_BUILTIN
-#define CTXT_BUILTIN 64
-#endif
-
-typedef struct RCNTXT { /* this RCNTXT structure is only partial since we need to get at "call" - it is safe form R 1.7.0 on */
-	struct RCNTXT *nextcontext; /* The next context up the chain <<-- we use this one to skip the .Call/.External call frame */
-	int callflag;               /* The context "type" <<<-- we use this one to skip the .Call/.External call frame */
-	JMP_BUF cjmpbuf;            /* C stack and register information */
-	int cstacktop;              /* Top of the pointer protection stack */
-	int evaldepth;              /* evaluation depth at inception */
-	SEXP promargs;              /* Promises supplied to closure */
-	SEXP callfun;               /* The closure called */
-	SEXP sysparent;             /* environment the closure was called from */
-	SEXP call;                  /* The call that effected this context <<<--- we pass this one to the condition */
-	SEXP cloenv;                /* The environment */
-} RCNTXT;
-
-#ifndef LibExtern
-#define LibExtern extern
-#endif
-
-LibExtern RCNTXT* R_GlobalContext;
-
 static SEXP getCurrentCall() {
-	RCNTXT *ctx = R_GlobalContext;
-	/* skip the .External/.Call context to get at the underlying call */
-	if (ctx->nextcontext && (ctx->callflag & CTXT_BUILTIN))
-		ctx = ctx->nextcontext;
-	/* skip .jcheck */
-	if (TYPEOF(ctx->call) == LANGSXP && CAR(ctx->call) == install(".jcheck") && ctx->nextcontext)
-		ctx = ctx->nextcontext;		
-	return ctx->call;
+    SEXP cexp, sys_calls = PROTECT(install("sys.calls"));
+    cexp = PROTECT(lang1(sys_calls));
+    SEXP cl = eval(cexp, R_GetCurrentEnv());
+    UNPROTECT(2);
+    /* find the last call */
+    if (TYPEOF(cl) != LISTSXP) return R_NilValue;
+    while (cl != R_NilValue) {
+	if (CDR(cl) == R_NilValue && CAR(cl) != R_NilValue)
+	    return CAR(cl);
+	cl = CDR(cl);
+    }
+    return R_NilValue; /* (LENGTH(cl) > 0) ? VECTOR_ELT(cl, 0) : R_NilValue; */
 }
-#else
-static SEXP getCurrentCall() {
-	return R_NilValue;
-}
-#endif
-/* -- end of hack */
 
 /** throw an exception using R condition code.
  *  @param msg - message string
- *  @param jobj - jobjRef object of the exception 
+ *  @param jobj - jobjRef object of the exception
  *  @param clazzes - simple name of all the classes in the inheritance tree of the exception plus "error" and "condition"
  */
 HIDE void throwR(SEXP msg, SEXP jobj, SEXP clazzes) {
@@ -94,7 +40,7 @@ HIDE void throwR(SEXP msg, SEXP jobj, SEXP clazzes) {
 	SET_STRING_ELT(names, 0, mkChar("message"));
 	SET_STRING_ELT(names, 1, mkChar("call"));
 	SET_STRING_ELT(names, 2, mkChar("jobj"));
-	
+
 	setAttrib(cond, R_NamesSymbol, names);
 	setAttrib(cond, R_ClassSymbol, clazzes);
 	UNPROTECT(2); /* clazzes, names */
@@ -104,7 +50,7 @@ HIDE void throwR(SEXP msg, SEXP jobj, SEXP clazzes) {
 
 /* check for exceptions and throw them to R level */
 HIDE void ckx(JNIEnv *env) {
-	SEXP xr, xobj, msg = 0, xclass = 0; /* note: we don't bother counting protections becasue we never return */
+	SEXP xr, xobj, msg = 0, xclass = 0; /* note: we don't bother counting protections because we never return */
 	jthrowable x = 0;
 	if (env && !(x = (*env)->ExceptionOccurred(env))) return;
 	if (!env) {
@@ -115,19 +61,18 @@ HIDE void ckx(JNIEnv *env) {
 		return;
 	}
 	/* env is valid and an exception occurred */
-	/* we create the jobj first, because the exception may in theory disappear after being cleared, 
+	/* we create the jobj first, because the exception may in theory disappear after being cleared,
 	   yet this can be (also in theory) risky as it uses further JNI calls ... */
 	xobj = j2SEXP(env, x, 0);
 	if (!rj_RJavaTools_Class) {
-	    /* temporary warning due the JDK 12 breakage */
-	    REprintf("WARNING: Initial Java 12 release has broken JNI support and does NOT work. Use stable Java 11 (or watch for 12u if avaiable).\nERROR: Java exception occurred during rJava bootstrap - see stderr for Java stack trace.\n");
+	    REprintf("ERROR: Java exception occurred during rJava bootstrap - see stderr for Java stack trace.\n");
 	    (*env)->ExceptionDescribe(env);
 	}
 	(*env)->ExceptionClear(env);
-	
+
 	/* grab the list of class names (without package path) */
 	SEXP clazzes = rj_RJavaTools_Class ? PROTECT( getSimpleClassNames_asSEXP( (jobject)x, (jboolean)1 ) ) : R_NilValue;
-	
+
 	/* ok, now this is a critical part that we do manually to avoid recursion */
 	{
 		jclass cls = (*env)->GetObjectClass(env, x);
@@ -148,14 +93,14 @@ HIDE void ckx(JNIEnv *env) {
 			cname = (jstring) (*env)->CallObjectMethod(env, cls, mid_getName);
 			if (cname) {
 				const char *c = (*env)->GetStringUTFChars(env, cname, 0);
-				if (c) {                          
+				if (c) {
 					/* convert full class name to JNI notation */
 					char *cn = strdup(c), *d = cn;
 					while (*d) { if (*d == '.') *d = '/'; d++; }
 					xclass = mkString(cn);
 					free(cn);
 					(*env)->ReleaseStringUTFChars(env, cname, c);
-				}		
+				}
 				(*env)->DeleteLocalRef(env, cname);
 			}
 			if ((*env)->ExceptionOccurred(env))
@@ -174,7 +119,7 @@ HIDE void ckx(JNIEnv *env) {
 		SET_SLOT(xr, install("jclass"), xclass ? xclass : mkString("java/lang/Throwable"));
 		SET_SLOT(xr, install("jobj"), xobj);
 	}
-	
+
 	/* and off to R .. (we're keeping xr and clazzes protected) */
 	throwR(msg, xr, clazzes);
 	/* throwR never returns so don't even bother ... */
@@ -216,7 +161,7 @@ HIDE JNIEnv *getJNIEnv()
       error("AttachCurrentThread failed! (result:%d)", (int)res); return 0;
     }
     if (env && !eenv) eenv=env;
-    
+
     /* if (eenv!=env)
         fprintf(stderr, "Warning! eenv=%x, but env=%x - different environments encountered!\n", eenv, env); */
     return env;
