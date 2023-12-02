@@ -1,6 +1,43 @@
  NEWS/ChangeLog for rJava
 --------------------------
 
+1.0-10	2023-11-30
+    o	minor documentation fixes
+
+    o	fix format specifier in an error message
+
+
+1.0-9	2023-11-28
+    o	clean up benign C warnings
+
+
+1.0-8	2022-12-30
+    o	attempt to prevent (close to) infinite loop in stack
+	detection due to unwanted tail call optimization by
+	gcc >= 11 if JDK older than Java 10 is used. (#300)
+
+
+1.0-7	2022-04-29
+    o	fix conversion from native encoding into UTF-16 (introduced
+	in 1.0-2) to work correctly if the native encoding is
+	neither UTF-8 nor Latin1. (#228)
+
+    o	debugging: if DEBUG_ENCODING C macro is defined string
+	conversion routines will output debugging information
+	when strings are converted between R and Java.
+
+    o	JRI: console callbacks (Read/WriteConsole) encode and decode
+	strings between native encoding and Java. (#24)
+	Previously, only UTF-8 native locales were supported.
+
+    o	Replaced deprected constructors like new Double(double) with
+	valueOf() calls to make recent JDKs happy.
+
+    o	Work around a crash in RStudio on UCRT Windows. (#296)
+
+    o	add .jvmState() reporting the state of the JVM. (#259)
+
+
 1.0-6	2021-12-10
     o	remove obsolete autoconf macros
 
@@ -491,6 +528,7 @@
 
     o	fixed synchronization issues in both JRI and REngine
 
+
 0.7-0	2009-08-22
     o	fixed bug in $ getter of fields using old .jfield API
 
@@ -516,6 +554,7 @@
 
     o	update to JRI 0.5-0
 
+
 0.6-3	2009-06-14
     o	update to JRI 0.4-3 (adds REngine API, enhanced support for
 	environments and references)
@@ -524,6 +563,7 @@
 
     o	added lib.loc parameter to .jpackage()
 
+
 0.6-2	2009-01-26
     o	fix --enable-debug to really enable debug code
 
@@ -531,8 +571,6 @@
 	listed and check their presence first) and warn if the system
 	suffers from PATH truncation bug (or PATH is truncated in
 	general)
-
-[0.6-branch is created as a stable branch -- see trunk for development]
 
 
 0.6-1	2008-12-23
@@ -606,8 +644,6 @@
     o	Fix a bug in .jarray missing [ prefix for native type arrays
 
 
-
-0.4 branch has been branched off the trunk, see 0.4-branch for NEWS
 
 0.4-13	2007-01-14
     o	Fix Java-side memory leaks (temporary parameters to methods
@@ -791,9 +827,18 @@
 	loop is unaware of the separate thread and can deadlock it.
 
 0.3-6	2006-01-30
+
 0.3-5	2006-01-02
+
 0.3-4	2005-12-28
+
 0.3-3	2005-12-20
-0.3	2005-12-19	[finalizers, arrays]
-0.2	2005-09-03	[S4 classes]
-0.1	2003-08-26	[initial release]
+
+0.3	2005-12-19
+     o	finalizers, arrays
+
+0.2	2005-09-03
+     o	S4 classes
+
+0.1	2003-08-26
+     o	initial release

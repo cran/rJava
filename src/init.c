@@ -9,6 +9,9 @@ JavaVM *jvm;
 /* this will be set when Java tries to exit() but we carry on */
 int java_is_dead = 0;
 
+/* current JVM state */
+int rJava_JVM_state = JVM_STATE_NONE;
+
 /* cached, global objects */
 
 jclass javaStringClass;
@@ -78,11 +81,18 @@ static int JNICALL vfprintf_hook(FILE *f, const char *fmt, va_list ap) {
 static void JNICALL exit_hook(int status) {
     /* REprintf("\nJava requested System.exit(%d), trying to raise R error - this may crash if Java is in a bad state.\n", status); */
     java_is_dead = 1;
+    rJava_JVM_state = JVM_STATE_DEAD;
     Rf_error("Java called System.exit(%d) requesting R to quit - trying to recover", status);
     /* FIXME: we could do something smart here such as running a call-back
        into R ... jump into R event loop ... at any rate we cannot return,
        but we don't want to kill R ... */
     exit(status);
+}
+
+int existingJVMs(void) {
+    jsize vms = 0;
+    JavaVM *jvms[32];
+    return (JNI_GetCreatedJavaVMs(jvms, 32, &vms) >= 0) ? vms : 0;
 }
 
 /* in reality WIN64 implies WIN32 but to make sure ... */
@@ -138,7 +148,9 @@ static int initJVM(const char *user_classpath, int opts, char **optv, int hooks,
   vm_args.ignoreUnrecognized = disableGuardPages ? JNI_FALSE : JNI_TRUE;
 
   classpath = (char*) calloc(24 + strlen(user_classpath), sizeof(char));
-  sprintf(classpath, "-Djava.class.path=%s", user_classpath);
+  if (!classpath)
+      error("Cannot allocate memory for classpath");
+  snprintf(classpath, (24 + strlen(user_classpath)) * sizeof(char), "-Djava.class.path=%s", user_classpath);
 
   vm_options[propNum++].optionString = classpath;
 
@@ -186,6 +198,7 @@ static int initJVM(const char *user_classpath, int opts, char **optv, int hooks,
   if (!eenv)
     error("Cannot obtain JVM environment");
 
+  rJava_JVM_state = JVM_STATE_CREATED;
 #if defined(_WIN64) || defined(_WIN32)
   _setmode(0, _O_TEXT);
 #endif
@@ -216,6 +229,8 @@ static void *initJVMthread(void *classpath)
 
   thInitResult=initJVM((char*)classpath, jvm_opts, jvm_optv, default_hooks, 0);
   if (thInitResult) return 0;
+
+  rJava_JVM_state = JVM_STATE_CREATED;
 
   init_rJava();
 
@@ -357,7 +372,10 @@ static SEXP RinitJVM_real(SEXP par, int disableGuardPages)
       while (i<vms) {
 	if (jvms[i]) {
 	  if (!(*jvms[i])->AttachCurrentThread(jvms[i], (void**)&eenv, NULL)) {
-            _dbg(rjprintf("RinitJVM: Attached to existing JVM #%d.\n", i+1));
+	      /* attaching our own created JVM doesn't change it to attached */
+	      if (rJava_JVM_state != JVM_STATE_CREATED)
+		  rJava_JVM_state = JVM_STATE_ATTACHED;
+	      _dbg(rjprintf("RinitJVM: Attached to existing JVM #%d.\n", i+1));
 	    break;
 	  }
 	}
@@ -389,6 +407,8 @@ static SEXP RinitJVM_real(SEXP par, int disableGuardPages)
   _dbg(rjprintf("RinitJVM(threads): attach\n"));
   /* since JVM was initialized by another thread, we need to attach ourselves */
   (*jvm)->AttachCurrentThread(jvm, (void**)&eenv, NULL);
+  if (rJava_JVM_state != JVM_STATE_CREATED)
+      rJava_JVM_state = JVM_STATE_ATTACHED;
   _dbg(rjprintf("RinitJVM(threads): done.\n"));
   r = thInitResult;
 #else
@@ -554,14 +574,14 @@ static char* findBound(char *from, char *limit, int dir)
    than allocating large arrays on the C stack, both via definition and
    alloca. */
 static SEXP RinitJVM_with_padding(SEXP par, intptr_t padding, char *last) {
-  char dummy[1];
+  volatile char dummy[1];
     /* reduce the risk that dummy will be optimized out */
   dummy[0] = (char) (uintptr_t) &dummy;
   padding -= (last - dummy) * R_CStackDir;
   if (padding <= 0)
     return RinitJVM_real(par, 0);
   else
-    return RinitJVM_with_padding(par, padding, dummy);
+    return RinitJVM_with_padding(par, padding, (char*) dummy);
 }
 
 /* Run RinitJVM with the Java stack workaround */
@@ -711,7 +731,7 @@ static SEXP RinitJVM_jsw(SEXP par) {
       /* the message may be confusing when R_CStackLimit was set to -1
          because the original stack size was too large */
       REprintf("Rjava.init.warning: stack size reduced from unlimited to"
-        " %u bytes after JVM initialization.\n", newlim);
+	       " %lu bytes after JVM initialization.\n", (unsigned long) newlim);
       bigloss = 1;
     } else {
       unsigned lost = (unsigned) (oldlim - newlim);
@@ -748,10 +768,11 @@ REP SEXP RinitJVM(SEXP par) {
 #endif
 }
 
-REP void doneJVM() {
+REP void doneJVM(void) {
   (*jvm)->DestroyJavaVM(jvm);
   jvm = 0;
   eenv = 0;
+  rJava_JVM_state = JVM_STATE_DESTROYED;
 }
 
 /**
@@ -759,7 +780,7 @@ REP void doneJVM() {
  * These classes and methods are the ones that are in rJava (RJavaTools, ...)
  * not java standard classes (Object, Class)
  */
-REPC SEXP initRJavaTools(){
+REPC SEXP initRJavaTools(void){
 
 	JNIEnv *env=getJNIEnv();
 	jclass c;

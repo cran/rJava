@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x010006 /* rJava v1.0-6 */
+#define RJAVA_VER 0x01000a /* rJava v1.0-10 */
 
 /* important changes between versions:
    3.0  - adds compiler
@@ -82,7 +82,7 @@ void rjprintf(char *fmt, ...); /* in Rglue.c */
 #ifdef RJ_PROFILE
 #define profStart() profilerTime=time_ms()
 #define _prof(X) X
-long time_ms(); /* those are acutally in Rglue.c */
+long time_ms(void); /* those are acutally in Rglue.c */
 void profReport(char *fmt, ...);
 #else
 #define profStart()
@@ -97,14 +97,17 @@ void profReport(char *fmt, ...);
 #define END_RJAVA_CALL };
 #endif
 
-/* define mkCharUTF8 in a compatible fashion */
+/* define mkCharUTF8 in a compatible fashion
+   NOTE: those should NOT be used anymore since native
+   Java strings use UTF-16 so use only in cases where UTF8 is required */
 #if R_VERSION < R_Version(2,7,0)
 #define mkCharUTF8(X) mkChar(X)
 #define CHAR_UTF8(X) CHAR(X)
 #else
+#define mkCharUTF8(X) rj_mkCharUTF8(X)
 #define CHAR_UTF8(X) rj_char_utf8(X)
-extern SEXP mkCharUTF8(const char *);
-extern const char *rj_char_utf8(SEXP);
+extern SEXP rj_mkCharUTF8(const char *); /* rjstring.c */
+extern const char *rj_char_utf8(SEXP);   /* Rglue.c */
 #endif
 
 /* signatures are stored in a local buffer if they fit. Only if they don't fit a heap buffer is allocated and used. */
@@ -120,7 +123,7 @@ extern int RJava_has_control;
 /* in rJava.c */
 extern JNIEnv *eenv; /* should NOT be used since not thread-safe; use getJNIEnv instead */
 
-HIDE JNIEnv* getJNIEnv();
+HIDE JNIEnv* getJNIEnv(void);
 HIDE void ckx(JNIEnv *env);
 HIDE void clx(JNIEnv *env);
 
@@ -132,6 +135,14 @@ REPC SEXP RgetSimpleClassNames( SEXP, SEXP );
 /* in init.c */
 extern JavaVM *jvm;
 extern int rJava_initialized;
+
+#define JVM_STATE_NONE      0  /* no JVM */
+#define JVM_STATE_CREATED   1  /* JVM was created by us */
+#define JVM_STATE_ATTACHED  2  /* we attached to another JVM */
+#define JVM_STATE_DEAD      4  /* set when Java exit handler was called */
+#define JVM_STATE_DESTROYED 8  /* JVM was destroyed */
+
+extern int rJava_JVM_state;
 
 extern int java_is_dead;
 
@@ -164,7 +175,7 @@ HIDE void init_rJava(void);
 
 REPC SEXP newRJavaLookupTable(SEXP) ;
 
-HIDE SEXP R_getUnboundValue() ;
+HIDE SEXP R_getUnboundValue(void) ;
 HIDE SEXP rJavaLookupTable_objects(R_ObjectTable *) ;
 HIDE SEXP rJavaLookupTable_assign(const char * const, SEXP, R_ObjectTable * ) ;
 HIDE Rboolean rJavaLookupTable_canCache(const char * const, R_ObjectTable *) ;
