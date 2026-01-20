@@ -1,6 +1,6 @@
-3ef5de9469098329e93a95651a6140b0 *DESCRIPTION
+d8befe882e45303c55e699ecf2f3390e *DESCRIPTION
 8ce0ce5f51c990a52e40300b783b9a82 *NAMESPACE
-6fd2d69af2662c43061b3871b8fbde2a *NEWS
+0633c0ce67b0747bd8fa18b1d60b303a *NEWS
 c0262f1fee78693a8c38bcb809617145 *R/0classes.R
 506b69ab5c1ad97b573874d24554777a *R/J.R
 f3fb76b841a4385db9de77094ac040a8 *R/arrays.R
@@ -12,8 +12,8 @@ c196ea9f88159fd334eacffcd04394b0 *R/exceptions.R
 7d774008ec5904cb1b6729c7caf8ee6b *R/gc.R
 cd18bdc03d03812e9d850d7f5d481d6e *R/import.R
 b1d5e8e5f1a708e1e532e98ca015c3a9 *R/instanceof.R
-a2cda3be8d52323317f81a1746eafd50 *R/jfirst.R
-3d5c890b82c6e0d9445f4f8a2b48be4e *R/jinit.R
+eebf265115ed7e272ff27ce642b9c310 *R/jfirst.R
+c7b11813f1e21fb681c584ebd1f8f6a2 *R/jinit.R
 f44033bcd8b55df5059790d9f48ccf6f *R/jri.R
 8e9d5f144ef7a2ddaa774d69e0bcddf4 *R/loader.R
 d7b68d370d30c42b76e1c09a1af3553e *R/memprof.R
@@ -81,8 +81,8 @@ eed34dc82e4c185a71a0cd6499cf98ad *inst/java/boot/RJavaClassLoader$UnixFile.class
 371a332e5bd7fd4c41f86c70b14b34ea *inst/java/boot/RJavaClassLoader$UnixJarFile.class
 af81794823dd522024ceede835bba2f0 *inst/java/boot/RJavaClassLoader.class
 0be17cfc7b2a91fc111e8001cd08639f *inst/java/boot/RJavaClassLoader.java
-33b3b2928097a0fe1796b31b71cb970c *inst/jri/JRIEngine.jar
-acc3163ffe87d94e985a97fc771773ae *inst/jri/REngine.jar
+656d7cd8c2bf3af01d3ede2df62a7f94 *inst/jri/JRIEngine.jar
+e343db28a1af7857c28ca91b5a247c09 *inst/jri/REngine.jar
 1702a92c723f09e3fab3583b165a8d90 *jri/LGPL.txt
 93f82aebab3ff00b332cf772f576bd74 *jri/LICENSE
 6a3ccf125d2f842b0818a623139c8d69 *jri/Makefile.all
@@ -232,7 +232,7 @@ b55d48fbeeed00de2dce5b42744ce814 *man/jfield.Rd
 eaf6a0e7498d10be9dcfc84d329e05b9 *man/jfloat-class.Rd
 1528d27faecfb836f5815b772d9046e2 *man/jfloat.Rd
 8c23d8437645125a03163b7986d699f2 *man/jgc.Rd
-fe82fc780b9d8c144e12a3ee8ee69b11 *man/jinit.Rd
+a9992230376d447980f6cb96ef1d1621 *man/jinit.Rd
 d9cddf847d9bd2147f5f711ef0ab4410 *man/jmemprof.Rd
 f735d24bedce9e0825a74cb73a550340 *man/jnew.Rd
 435133b5d10a554a34a6d28969bd9d8a *man/jnull.Rd
@@ -251,7 +251,7 @@ b5ba8c698210be6a9abaa85ab25cc2c8 *man/show.Rd
 6dd371555cdf1e69a028ee224c460d79 *man/with.Rd
 2b764485b08c795de76d81ea588015cf *src/Makevars.in
 61e341d751aa8c67162234a838b4760b *src/Makevars.win
-6eca6687b455cc47071841dd93d27972 *src/Rglue.c
+e77e4b5ee43d3822ca5c959b8fa9493d *src/Rglue.c
 71c752999b97f5a3d87fc4574611399d *src/arrayc.c
 31383adb32a49536373c640fac5699bf *src/callJNI.c
 eb839008c4a65f6dc28905c26a0bd436 *src/callback.c
@@ -322,8 +322,8 @@ af290855d859d8feed785b6cc460bdca *src/jvm-w32/findjava.c
 7bbc4291d8011614923e56506dc24ac2 *src/jvm-w32/jvm64.def
 032794afde7d7859c1a94c944ccc2fd4 *src/loader.c
 16604fa1fe21032e5603c1c44d085eb6 *src/otables.c
-7fa0004268cde0bb9b19e035f40c9165 *src/rJava.c
-4dcfd994c4a12b00c15b8abee11d7af6 *src/rJava.h
+53e0dad35264ebf639c0fb8648f330b1 *src/rJava.c
+8b8aa54bb8dfbf5a487beedfcbb41f2f *src/rJava.h
 47f73a6a12d498ee9ac9b085de6ce943 *src/registration.c
 e23740cf5bbb38d024fa78722bbed095 *src/rjstring.c
 c3a4cc8bb957a22caa6e70d8d1a6004a *src/rjstring.h

@@ -1,7 +1,7 @@
 #ifndef __RJAVA_H__
 #define __RJAVA_H__
 
-#define RJAVA_VER 0x01000b /* rJava v1.0-11 */
+#define RJAVA_VER 0x01000e /* rJava v1.0-14 */
 
 /* important changes between versions:
    3.0  - adds compiler
@@ -25,7 +25,29 @@
 #include <Rversion.h>
 
 #include <Rdefines.h>
+#include <Rversion.h>
+#if (R_VERSION >= R_Version(4,6,0))
+#include <R_ext/ObjectTable.h>
+#else
 #include <R_ext/Callbacks.h>
+#endif
+
+/* R API compatibility re-mapping */
+#if (R_VERSION >= R_Version(2,0,0))
+/* EXTPTR */
+#ifdef  EXTPTR_PTR
+#undef  EXTPTR_PTR
+#endif
+#define EXTPTR_PTR(X) R_ExternalPtrAddr(X)
+#ifdef  EXTPTR_PROT
+#undef  EXTPTR_PROT
+#endif
+#define EXTPTR_PROT(X) R_ExternalPtrProtected(X)
+#ifdef  EXTPTR_TAG
+#undef  EXTPTR_TAG
+#endif
+#define EXTPTR_TAG(X) R_ExternalPtrTag(X)
+#endif
 
 /* flags used in function declarations:
    HIDE - hidden (used internally in rJava only)
@@ -58,6 +80,21 @@
 #endif
 
 #include "config.h"
+
+/* R 4.0.1 broke EXTPTR_PTR ABI so re-map it to safety at the small expense of speed */
+#ifdef  EXTPTR_PTR
+#undef  EXTPTR_PTR
+#endif
+#define EXTPTR_PTR(X) R_ExternalPtrAddr(X)
+/* PROT/TAG are safe so far, but just to make sure ... */
+#ifdef  EXTPTR_PROT
+#undef  EXTPTR_PROT
+#endif
+#define EXTPTR_PROT(X) R_ExternalPtrProtected(X)
+#ifdef  EXTPTR_TAG
+#undef  EXTPTR_TAG
+#endif
+#define EXTPTR_TAG(X) R_ExternalPtrTag(X)
 
 #ifdef MEMPROF
 #include <stdio.h>
