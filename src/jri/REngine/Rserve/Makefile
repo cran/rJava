@@ -6,14 +6,17 @@ TARGETS=Rserve.jar
 all: $(TARGETS)
 
 JAVAC=javac
-JFLAGS=-encoding utf8 -source 1.6 -target 1.6
+ifeq ($(JTARGET),)
+JTARGET:=$(shell for i in 1.6 8 11 17; do if javac -source $$i -target $$i ../package-info.java >/dev/null 2>&1; then echo $$i; break; fi; done)
+endif
+JFLAGS=-encoding utf8 -source $(JTARGET) -target $(JTARGET)
 
 ../REngine.jar: $(RENG_SRC)
 	make -C .. REngine.jar
 
 Rserve.jar: $(RSRV_SRC) ../REngine.jar
 	@rm -rf org
-	$(JAVAC) -d . -cp ../REngine.jar $(RSRV_SRC)
+	$(JAVAC) $(JFLAGS) -d . -cp ../REngine.jar $(RSRV_SRC)
 	jar fc $@ org
 	rm -rf org
 
