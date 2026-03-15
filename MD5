@@ -1,6 +1,6 @@
-5c030be32284d4111f00d28bcabc01f1 *DESCRIPTION
+598dd006f18b3d8d9afedadee8f973b0 *DESCRIPTION
 8ce0ce5f51c990a52e40300b783b9a82 *NAMESPACE
-d9082e64fc7de62c48f716f758e0d048 *NEWS
+7a0134986ba1e57a7afad17d90794ade *NEWS
 c0262f1fee78693a8c38bcb809617145 *R/0classes.R
 506b69ab5c1ad97b573874d24554777a *R/J.R
 f3fb76b841a4385db9de77094ac040a8 *R/arrays.R
@@ -81,8 +81,8 @@ eed34dc82e4c185a71a0cd6499cf98ad *inst/java/boot/RJavaClassLoader$UnixFile.class
 371a332e5bd7fd4c41f86c70b14b34ea *inst/java/boot/RJavaClassLoader$UnixJarFile.class
 af81794823dd522024ceede835bba2f0 *inst/java/boot/RJavaClassLoader.class
 0be17cfc7b2a91fc111e8001cd08639f *inst/java/boot/RJavaClassLoader.java
-352b109403a456aab7ef131bfcf654cb *inst/jri/JRIEngine.jar
-e489704de96af45b0736d301498f540a *inst/jri/REngine.jar
+d85d6107a83267867104597cb47b685a *inst/jri/JRIEngine.jar
+7dc0ed81e4d51b178cc8555e0d73e243 *inst/jri/REngine.jar
 6b0228b2fa88da85179313bcf9058425 *man/Exceptions.Rd
 f3eace6d924ef71398c57295027244af *man/J.Rd
 ae43523a3ad4c0dc8f07b34330ff9c3c *man/accessOp.Rd
@@ -266,7 +266,7 @@ c17346150974cac840361a335e5dca7c *src/jri/REngine/pom.xml
 65da163f74e942405100f51457c7c5c7 *src/jri/RList.java
 e2ccb469e563006e901b2ed0148a288a *src/jri/RMainLoopCallbacks.java
 eeb974948e12d6b2601750ad44ed9763 *src/jri/RVector.java
-bf58490a93b67f7eb2fd429d8bbdd6e2 *src/jri/Rengine.java
+7acfb9e7ac37017b06d5bc6a7f614f2e *src/jri/Rengine.java
 3c803b79f3a2dd308f063cb2dc229c6e *src/jri/bootstrap/Boot.java
 b8f50d514a93033cc3417b177aae49da *src/jri/bootstrap/DelegatedClassLoader.java
 9d13bd7a1ab846c16892114d544d1c46 *src/jri/bootstrap/DelegatedURLClassLoader.java
@@ -289,7 +289,7 @@ ba4f83c3c3acda984dc08c299f5c973a *src/jri/src/Makefile.all
 4af4494aab4eb68c72bbf2d66d8f9df8 *src/jri/src/Rcallbacks.c
 0e9d20de6cc84e8a7c73f1726cf40e34 *src/jri/src/Rcallbacks.h
 3a493d1e77fa4cc782cbdcfb87f95660 *src/jri/src/Rdecl.h
-7e2abd44653f9a0ec654ccd7d8a41d83 *src/jri/src/Rengine.c
+ae11104658cc702c92f170dd7c185552 *src/jri/src/Rengine.c
 adb36ab86cb2c731e8af65ed4d69a654 *src/jri/src/Rinit.c
 065ebfa9f7eb83df397bf64e6d69e5c1 *src/jri/src/Rinit.h
 f373249d181069d82f9c2cdec8255687 *src/jri/src/config.h.in
@@ -323,7 +323,7 @@ af290855d859d8feed785b6cc460bdca *src/jvm-w32/findjava.c
 032794afde7d7859c1a94c944ccc2fd4 *src/loader.c
 16604fa1fe21032e5603c1c44d085eb6 *src/otables.c
 53e0dad35264ebf639c0fb8648f330b1 *src/rJava.c
-3fcb532cacfbd0316b994f0058c38d8e *src/rJava.h
+b232ed95cadcd1ce5bad026dc6ed7bdc *src/rJava.h
 47f73a6a12d498ee9ac9b085de6ce943 *src/registration.c
 e23740cf5bbb38d024fa78722bbed095 *src/rjstring.c
 c3a4cc8bb957a22caa6e70d8d1a6004a *src/rjstring.h

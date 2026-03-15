@@ -156,6 +156,7 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniEval
       /* invalid (NULL) expression (parse error, ... ) */
       if (!exp) return 0;
 
+      PROTECT(exps);
       if (TYPEOF(exps) == EXPRSXP) { 
       	  /* if the object is a list of exps, eval them one by one */
           l = LENGTH(exps);
@@ -163,12 +164,16 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniEval
               es = R_tryEval(VECTOR_ELT(exps,i), eval_env, &er);
               
               /* an error occured, no need to continue */
-              if (er) return 0;
+              if (er) {
+		  UNPROTECT(1);
+		  return 0;
+	      }
               i++;
           }
       } else
           es = R_tryEval(exps, eval_env, &er);
-      
+      UNPROTECT(1);
+
       /* er is just a flag - on error return 0 */
       if (er) return 0;
       
@@ -232,7 +237,7 @@ JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniPrintValue
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniParentEnv
 (JNIEnv *env, jobject this, jlong exp)
 {
-  return SEXP2L(ENCLOS(exp ? L2SEXP(exp) : R_GlobalEnv));
+	return SEXP2L(ENCLOS(exp ? L2SEXP(exp) : R_GlobalEnv));
 }
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniFindVar
@@ -247,7 +252,19 @@ JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniFindVar
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniListEnv
 (JNIEnv *env, jobject this, jlong rho, jboolean all)
 {
+#if (R_VERSION >= R_Version(4,6,0))
+	/* have to do it the hard way - eval ls(rho, all.names=all) */
+	SEXP sRho = PROTECT(rho ? L2SEXP(rho) : R_GlobalEnv);
+	SEXP sAll = PROTECT(Rf_ScalarLogical(all ? 1 : 0));
+	SEXP ana = PROTECT(CONS(sAll, R_NilValue));
+	SET_TAG(ana, Rf_install("all.names"));
+	SEXP ex = PROTECT(lang3(Rf_install("ls"), sRho, ana));
+	SEXP res = Rf_eval(ex, R_BaseEnv);
+	UNPROTECT(4);
+	return SEXP2L(res);
+#else
 	return SEXP2L(R_lsInternal(rho ? L2SEXP(rho) : R_GlobalEnv, all));
+#endif
 }
 
 JNIEXPORT jlong JNICALL Java_org_rosuda_JRI_Rengine_rniSpecialObject
@@ -410,19 +427,33 @@ JNIEXPORT jobjectArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetAttrNames
 (JNIEnv *env, jobject this, jlong exp)
 {
     SEXP o = L2SEXP(exp);
-    SEXP att = ATTRIB(o), ah = att;
     unsigned int ac = 0;
     jobjectArray sa;
+#if (R_VERSION >= R_Version(4,6,0))
+    SEXP ans = R_getAttribNames(o);
+    ac = (unsigned int) XLENGTH(o);
+    if (!ac) return 0;
+#else
+    SEXP att = ATTRIB(o), ah = att;
     if (att == R_NilValue) return 0;
     /* count the number of attributes */
     while (ah != R_NilValue) {
 	ac++;
 	ah = CDR(ah);
     }
+#endif
     /* allocate Java array */
     sa = (*env)->NewObjectArray(env, ac, (*env)->FindClass(env, "java/lang/String"), 0);
     if (!sa) return 0;
     ac = 0;
+#if (R_VERSION >= R_Version(4,6,0))
+    R_xlen_t i = 0, n = XLENGTH(ans);
+    while (i < n) {
+	jobject s = (*env)->NewStringUTF(env, CHAR_UTF8(STRING_ELT(ans, i)));
+	(*env)->SetObjectArrayElement(env, sa, (unsigned int)i, s);
+	i++;
+    }
+#else
     ah = att;
     /* iterate again and set create the strings */
     while (ah != R_NilValue) {
@@ -434,6 +465,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_rosuda_JRI_Rengine_rniGetAttrNames
 	ac++;
 	ah = CDR(ah);
     }
+#endif
     return sa;
 }
 
@@ -444,8 +476,7 @@ JNIEXPORT void JNICALL Java_org_rosuda_JRI_Rengine_rniSetAttr
     if (!an || an==R_NilValue || exp==0 || L2SEXP(exp)==R_NilValue) return;
 
     setAttrib(L2SEXP(exp), an, (attr==0)?R_NilValue:L2SEXP(attr));
-	
-	/* BTW: we don't need to adjust the object bit for "class", setAttrib does that already */
+    /* BTW: we don't need to adjust the object bit for "class", setAttrib does that already */
 
     /* this is not official API, but whoever uses this should know what he's doing
        it's ok for directly constructing attr lists, and that's what it should be used for
