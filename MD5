@@ -1,6 +1,6 @@
-598dd006f18b3d8d9afedadee8f973b0 *DESCRIPTION
-8ce0ce5f51c990a52e40300b783b9a82 *NAMESPACE
-7a0134986ba1e57a7afad17d90794ade *NEWS
+bc1ef7957642ff4b8432d99c29e064f3 *DESCRIPTION
+7c6c74fa9ff969520430f37eb0b3c712 *NAMESPACE
+52066354bdd60680ee6dc0078c779447 *NEWS
 c0262f1fee78693a8c38bcb809617145 *R/0classes.R
 506b69ab5c1ad97b573874d24554777a *R/J.R
 f3fb76b841a4385db9de77094ac040a8 *R/arrays.R
@@ -81,8 +81,8 @@ eed34dc82e4c185a71a0cd6499cf98ad *inst/java/boot/RJavaClassLoader$UnixFile.class
 371a332e5bd7fd4c41f86c70b14b34ea *inst/java/boot/RJavaClassLoader$UnixJarFile.class
 af81794823dd522024ceede835bba2f0 *inst/java/boot/RJavaClassLoader.class
 0be17cfc7b2a91fc111e8001cd08639f *inst/java/boot/RJavaClassLoader.java
-d85d6107a83267867104597cb47b685a *inst/jri/JRIEngine.jar
-7dc0ed81e4d51b178cc8555e0d73e243 *inst/jri/REngine.jar
+827941422fda2580ab8af9e52192441d *inst/jri/JRIEngine.jar
+5bb4da289177752c2d07901fae406e5a *inst/jri/REngine.jar
 6b0228b2fa88da85179313bcf9058425 *man/Exceptions.Rd
 f3eace6d924ef71398c57295027244af *man/J.Rd
 ae43523a3ad4c0dc8f07b34330ff9c3c *man/accessOp.Rd
@@ -286,11 +286,11 @@ bc8dfbefbb4c8a177682898bfcbe5f54 *src/jri/run.in
 ba4f83c3c3acda984dc08c299f5c973a *src/jri/src/Makefile.all
 71dc21c4420695d75d031aede525856f *src/jri/src/Makefile.in
 40bd09315359bb8d8a0efff9ef832890 *src/jri/src/Makefile.win
-4af4494aab4eb68c72bbf2d66d8f9df8 *src/jri/src/Rcallbacks.c
+7be7f11fe8526662f031c44921136deb *src/jri/src/Rcallbacks.c
 0e9d20de6cc84e8a7c73f1726cf40e34 *src/jri/src/Rcallbacks.h
-3a493d1e77fa4cc782cbdcfb87f95660 *src/jri/src/Rdecl.h
-ae11104658cc702c92f170dd7c185552 *src/jri/src/Rengine.c
-adb36ab86cb2c731e8af65ed4d69a654 *src/jri/src/Rinit.c
+a3c91ba47130c92cf9fb77a22ffa9297 *src/jri/src/Rdecl.h
+5c6c8eed91e1324d31c0145261519c5f *src/jri/src/Rengine.c
+056bbe8e8f8192644feae59cb4036525 *src/jri/src/Rinit.c
 065ebfa9f7eb83df397bf64e6d69e5c1 *src/jri/src/Rinit.h
 f373249d181069d82f9c2cdec8255687 *src/jri/src/config.h.in
 a38fc939f86e56b41e19f1d8b28d99ab *src/jri/src/globals.c
@@ -323,7 +323,7 @@ af290855d859d8feed785b6cc460bdca *src/jvm-w32/findjava.c
 032794afde7d7859c1a94c944ccc2fd4 *src/loader.c
 16604fa1fe21032e5603c1c44d085eb6 *src/otables.c
 53e0dad35264ebf639c0fb8648f330b1 *src/rJava.c
-b232ed95cadcd1ce5bad026dc6ed7bdc *src/rJava.h
+223444bf798d82d76ae4aca49aa32ffe *src/rJava.h
 47f73a6a12d498ee9ac9b085de6ce943 *src/registration.c
 e23740cf5bbb38d024fa78722bbed095 *src/rjstring.c
 c3a4cc8bb957a22caa6e70d8d1a6004a *src/rjstring.h

@@ -30,11 +30,16 @@ LibExtern int R_interrupts_pending;
 #define EXTPTR_PTR(X) R_ExternalPtrAddr(X)
 #endif
 
-#if (R_VERSION >= R_Version(2,5,0))
+#if (R_VERSION >= R_Version(4,5,0))
 #ifdef ENCLOS
 #undef ENCLOS
 #endif
 #define ENCLOS(X) R_ParentEnv(X)
+
+#ifdef Rf_findVar
+#undef Rf_findVar
+#endif
+#define Rf_findVar(X, Y) R_getVar(X, Y, FALSE)
 #endif
 
 #include "Rcallbacks.h"
